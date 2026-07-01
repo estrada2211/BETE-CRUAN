@@ -1,24 +1,38 @@
 {
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.js"
+      "src": "api/index.js",
+      "use": "@vercel/node"
     },
     {
-      "source": "/uploads/(.*)",
-      "destination": "/api/index.js"
+      "src": "FAMERS SIDE/**",
+      "use": "@vercel/static"
     },
     {
-      "source": "/admin",
-      "destination": "/ADMIN SIDE/index.html"
+      "src": "ADMIN SIDE/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/admin/(.*)",
-      "destination": "/ADMIN SIDE/$1"
+      "src": "/uploads/(.*)",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/(.*)",
-      "destination": "/FAMERS SIDE/$1"
+      "src": "/admin$",
+      "dest": "/ADMIN SIDE/index.html"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "/ADMIN SIDE/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/FAMERS SIDE/$1"
     }
   ]
 }
