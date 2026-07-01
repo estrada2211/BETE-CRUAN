@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/uploads/(.*)",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "/ADMIN SIDE/$1"
+    },
+    {
+      "src": "/admin",
+      "dest": "/ADMIN SIDE/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/FAMERS SIDE/$1"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# Environment Variables (never commit these)
+.env
+
+# Dependencies
+node_modules/
+
+# Local upload files (stored in Cloudinary on production)
+uploads/
+
+# OS / editor artifacts
+.DS_Store
+Thumbs.db
+*.log

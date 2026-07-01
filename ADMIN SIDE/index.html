@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriSnap - DA Admin Dashboard</title>
+  <!-- Google Fonts & Leaflet map -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ==========================================
+       1. SPLIT LOGIN SCREEN
+       ========================================== -->
+  <div id="auth-screen" class="centered-auth-container">
+    <div class="login-card">
+      <div class="login-card-header">
+        <div class="brand-logo-box">
+          <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+            <path d="M50 90 V15" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+            <path d="M50 30 C65 25 70 40 50 45" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+            <path d="M50 30 C35 25 30 40 50 45" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+            <path d="M50 45 C65 40 70 55 50 60" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+            <path d="M50 45 C35 40 30 55 50 60" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+          </svg>
+        </div>
+        <h2>BETE CRUAN</h2>
+        <h4>ADMIN PORTAL</h4>
+        <p class="login-subtitle">Sign in to access the agricultural monitoring dashboard</p>
+      </div>
+
+      <!-- Auth Tabs -->
+      <div class="admin-auth-tabs">
+        <button id="admin-tab-login" class="admin-auth-tab active" type="button">Sign In</button>
+        <button id="admin-tab-register" class="admin-auth-tab" type="button">Register</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <form id="admin-login-form" class="admin-auth-form active">
+        <div class="form-group">
+          <label for="login-username">Username</label>
+          <div class="input-with-icon">
+            <span class="input-icon">✉️</span>
+            <input type="text" id="login-username" placeholder="Enter your username" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <div class="input-with-icon">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="login-password" placeholder="Enter your password" required>
+          </div>
+        </div>
+        <div class="form-actions-row">
+          <label class="checkbox-container">
+            <input type="checkbox" id="remember-me">
+            <span class="checkbox-label">Remember me</span>
+          </label>
+          <a href="#" class="forgot-link">Forgot Password?</a>
+        </div>
+        <button type="submit" class="primary-btn">Sign In</button>
+      </form>
+
+      <!-- REGISTER FORM -->
+      <form id="admin-register-form" class="admin-auth-form">
+        <div class="form-group">
+          <label for="reg-fullname">Full Name</label>
+          <div class="input-with-icon">
+            <span class="input-icon">👤</span>
+            <input type="text" id="reg-fullname" placeholder="e.g. Maria Santos" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="reg-username">Username</label>
+          <div class="input-with-icon">
+            <span class="input-icon">✉️</span>
+            <input type="text" id="reg-username" placeholder="Choose a username" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="reg-password">Password</label>
+          <div class="input-with-icon">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="reg-password" placeholder="Create a password" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="reg-confirm-password">Confirm Password</label>
+          <div class="input-with-icon">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="reg-confirm-password" placeholder="Re-enter your password" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="reg-admin-code">Admin Registration Code</label>
+          <div class="input-with-icon">
+            <span class="input-icon">🔑</span>
+            <input type="password" id="reg-admin-code" placeholder="Enter DA registration code" required>
+          </div>
+          <small class="field-hint">Contact your DA System Administrator for the registration code.</small>
+        </div>
+        <button type="submit" class="primary-btn">Create Admin Account</button>
+      </form>
+
+      <p class="gov-text">Republic of the Philippines • Department of Agriculture<br>Authorized personnel only</p>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       2. DASHBOARD MAIN VIEW
+       ========================================== -->
+  <div id="dashboard-screen" class="dashboard-wrapper hidden">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-logo-box">
+          <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+            <path d="M50 90 V15" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+            <path d="M50 30 C65 25 70 40 50 45" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+            <path d="M50 30 C35 25 30 40 50 45" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+            <path d="M50 45 C65 40 70 55 50 60" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+            <path d="M50 45 C35 40 30 55 50 60" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="sidebar-brand-text">
+          <h2>BETE CRUAN</h2>
+          <span>Admin Portal</span>
+        </div>
+      </div>
+      <p class="sidebar-dept-text">Department of Agriculture<br>Region 10</p>
+      
+      <div class="sidebar-menu-label">MAIN MENU</div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" data-panel="overview">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-btn" data-panel="map-view">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Map View</span>
+        </button>
+        <button class="nav-btn" data-panel="reports-log">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>Reports Log</span>
+        </button>
+        <button class="nav-btn" data-panel="farmers">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Farmers List</span>
+        </button>
+        <button class="nav-btn" data-panel="settings">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span id="admin-display-name" class="admin-user-tag">Officer Pedro</span>
+        <button id="btn-logout" class="sidebar-logout-btn">Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main Content Panel Wrapper -->
+    <main class="main-content">
+      <header class="content-header">
+        <div class="header-left">
+          <div class="sidebar-logo-box">
+            <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+              <path d="M50 90 V15" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+              <path d="M50 30 C65 25 70 40 50 45" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+              <path d="M50 30 C35 25 30 40 50 45" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+              <path d="M50 45 C65 40 70 55 50 60" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+              <path d="M50 45 C35 40 30 55 50 60" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="header-title-text">
+            <h2 class="region-title">BETE CRUAN Admin Portal - Department of Agriculture Region 10</h2>
+            <span class="region-subtitle">Northern Mindanao Crop Damage Monitoring System</span>
+          </div>
+        </div>
+        <div class="header-right">
+          <!-- Notification Bell -->
+          <div class="header-notif-bell">
+            <span class="bell-icon">🔔</span>
+            <span id="bell-badge" class="bell-badge-count">2</span>
+            <!-- Dropdown notifications feed -->
+            <div id="bell-notif-dropdown" class="bell-dropdown hidden">
+              <h4>Recent Notifications</h4>
+              <div id="bell-dropdown-list-holder" class="bell-list">
+                <div class="no-data">No alerts.</div>
+              </div>
+            </div>
+          </div>
+          <!-- Profile indicator -->
+          <div class="header-user-avatar">
+            <span class="avatar-circle">AD</span>
+            <div class="user-details-box">
+              <span class="user-name">Admin User</span>
+              <span class="user-role">DA Administrator</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- OVERVIEW PANEL -->
+      <section id="panel-overview" class="content-panel active">
+        <!-- Welcome Banner -->
+        <div class="welcome-banner-card">
+          <div class="welcome-banner-text">
+            <h2>Welcome back, Admin!</h2>
+            <p>Here's what's happening with Bete Cruan today.</p>
+          </div>
+          <svg class="welcome-banner-svg" viewBox="0 0 100 100">
+            <path d="M50 90 V15" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+            <path d="M50 30 C65 25 70 40 50 45" fill="none" stroke="#ffffff" stroke-width="4"/>
+            <path d="M50 30 C35 25 30 40 50 45" fill="none" stroke="#ffffff" stroke-width="4"/>
+            <path d="M50 45 C65 40 70 55 50 60" fill="none" stroke="#ffffff" stroke-width="4"/>
+            <path d="M50 45 C35 40 30 55 50 60" fill="none" stroke="#ffffff" stroke-width="4"/>
+          </svg>
+        </div>
+
+        <!-- Dashboard Stats Grid -->
+        <div class="stats-grid-row">
+          <!-- Stat 1: Total Registered Farmers -->
+          <div class="stat-box-card">
+            <div class="stat-box-left">
+              <span class="stat-box-label">Total Registered Farmers</span>
+              <h2 id="overview-stat-farmers" class="stat-box-val">0</h2>
+              <span class="stat-box-sub">Registered users</span>
+              <span class="stat-box-trend green">↗ +34 this week</span>
+            </div>
+            <div class="stat-icon-box green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+          </div>
+
+          <!-- Stat 2: Total Crop Reports -->
+          <div class="stat-box-card">
+            <div class="stat-box-left">
+              <span class="stat-box-label">Total Crop Reports</span>
+              <h2 id="overview-stat-total" class="stat-box-val">0</h2>
+              <span class="stat-box-sub">All time reports</span>
+              <span class="stat-box-trend green">↗ +12% from last month</span>
+            </div>
+            <div class="stat-icon-box blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </div>
+          </div>
+
+          <!-- Stat 3: Pending Validation -->
+          <div class="stat-box-card">
+            <div class="stat-box-left">
+              <span class="stat-box-label">Pending Validation</span>
+              <h2 id="overview-stat-pending" class="stat-box-val">0</h2>
+              <span class="stat-box-sub">Awaiting review</span>
+              <span class="stat-box-trend orange">⏳ Action required</span>
+            </div>
+            <div class="stat-icon-box orange">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+          </div>
+
+          <!-- Stat 4: Resolved Reports -->
+          <div class="stat-box-card">
+            <div class="stat-box-left">
+              <span class="stat-box-label">Resolved Reports</span>
+              <h2 id="overview-stat-verified" class="stat-box-val">0</h2>
+              <span class="stat-box-sub" id="overview-stat-rate">0% verification rate</span>
+              <span class="stat-box-trend green">↗ +8% from last month</span>
+            </div>
+            <div class="stat-icon-box green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Bottom Row: Recent Reports & New Farmers -->
+        <div class="dashboard-grid-row">
+          <!-- Recent Reports Card -->
+          <div class="dashboard-card-box">
+            <div class="card-box-header">
+              <h3>Recent Reports</h3>
+              <button class="text-link-btn" id="link-view-all-reports">View All Reports</button>
+            </div>
+            <div class="table-scroll-container mini-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Report ID</th>
+                    <th>Farmer</th>
+                    <th>Disease/Issue</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-recent-reports-body">
+                  <tr>
+                    <td colspan="5" class="no-data">Loading recent reports...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- New Farmers Card -->
+          <div class="dashboard-card-box">
+            <div class="card-box-header">
+              <h3>New Farmers</h3>
+            </div>
+            <div class="scroll-list-container" id="dashboard-new-farmers-list">
+              <div class="no-data">Loading new farmers...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- REPORTS MANAGEMENT PANEL -->
+      <section id="panel-reports-log" class="content-panel">
+        <div class="panel-intro">
+          <h2>Reports Management</h2>
+          <p>Review and verify crop damage reports from registered farmers</p>
+        </div>
+
+        <!-- Small Stats Row -->
+        <div class="panel-mini-stats-grid">
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Total Reports</span>
+              <h3 id="report-mini-total">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper blue">📄</span>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Pending</span>
+              <h3 id="report-mini-pending">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper orange">🕒</span>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Verified</span>
+              <h3 id="report-mini-verified">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper blue">✓</span>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Responded</span>
+              <h3 id="report-mini-responded">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper green">💬</span>
+          </div>
+        </div>
+
+        <!-- Filter Card -->
+        <div class="filter-card">
+          <h4>🔍 Filters & Search</h4>
+          <div class="filters-grid">
+            <div class="filter-item">
+              <label for="table-report-search">Search Reports</label>
+              <input type="text" id="table-report-search" placeholder="Search by ID, farmer name, or location...">
+            </div>
+            <div class="filter-item">
+              <label for="table-report-status">Status</label>
+              <select id="table-report-status">
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="verified">Verified</option>
+                <option value="responded">Responded</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <label for="table-report-disaster">Disaster Type</label>
+              <select id="table-report-disaster">
+                <option value="all">All Types</option>
+                <option value="Flood">Flood</option>
+                <option value="Drought">Drought</option>
+                <option value="Typhoon">Typhoon</option>
+                <option value="Pest">Pest Infestation</option>
+                <option value="Disease">Crop Disease</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Log Card -->
+        <div class="table-card">
+          <div class="table-card-header">
+            <h3>Crop Damage Reports</h3>
+            <p>Complete list of submitted agricultural damage reports</p>
+          </div>
+          <div class="table-scroll-container">
+            <table id="reports-main-table">
+              <thead>
+                <tr>
+                  <th>Report ID</th>
+                  <th>Farmer Name</th>
+                  <th>Location</th>
+                  <th>Date Submitted</th>
+                  <th>Disaster Type</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="reports-table-body">
+                <tr>
+                  <td colspan="7" class="no-data">Loading report records...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- FARMERS MANAGEMENT PANEL -->
+      <section id="panel-farmers" class="content-panel">
+        <div class="panel-intro">
+          <h2>Farmers Management</h2>
+          <p>Manage registered farmers and their accounts</p>
+        </div>
+
+        <!-- Mini stats grid -->
+        <div class="panel-mini-stats-grid">
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Total Farmers</span>
+              <h3 id="farmer-mini-total">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper blue">👥</span>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Active Farmers</span>
+              <h3 id="farmer-mini-active">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper green">👤</span>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Inactive Farmers</span>
+              <h3 id="farmer-mini-inactive">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper red">👤</span>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Total Reports</span>
+              <h3 id="farmer-mini-reports">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper purple">📄</span>
+          </div>
+        </div>
+
+        <!-- Filters search card -->
+        <div class="filter-card">
+          <h4>🔍 Registered Farmers</h4>
+          <p class="filter-subtitle">Complete list of all farmers registered in the system</p>
+          <div class="filters-grid farmers-grid">
+            <div class="filter-item search-full">
+              <input type="text" id="table-farmer-search" placeholder="Search by name, ID, location, or email...">
+            </div>
+            <div class="filter-item">
+              <select id="table-farmer-status">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            <button id="btn-export-farmers-csv" class="action-btn-styled">📥 Export Farmers</button>
+          </div>
+        </div>
+
+        <!-- Farmers Log Table -->
+        <div class="table-card">
+          <div class="table-scroll-container">
+            <table id="farmers-main-table">
+              <thead>
+                <tr>
+                  <th>Farmer ID</th>
+                  <th>Full Name</th>
+                  <th>Farm Location</th>
+                  <th>Contact Info</th>
+                  <th>Reports</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="farmers-table-body">
+                <tr>
+                  <td colspan="7" class="no-data">Loading farmers records...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- MAP VIEW & FILTER HOTSPOTS PANEL -->
+      <section id="panel-map-view" class="content-panel">
+        <div class="panel-intro">
+          <h2>Map View</h2>
+          <p>Visualize all submitted crop damage reports on an interactive map</p>
+        </div>
+
+        <!-- Mini Stats Grid -->
+        <div class="panel-mini-stats-grid">
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Total Reports</span>
+              <h3 id="map-mini-total">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper purple">📍</span>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Pending</span>
+              <h3 id="map-mini-pending">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper red">⚪</span>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Verified</span>
+              <h3 id="map-mini-verified">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper green">⚪</span>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-info">
+              <span class="mini-stat-label">Responded</span>
+              <h3 id="map-mini-responded">0</h3>
+            </div>
+            <span class="mini-stat-icon-wrapper blue">⚪</span>
+          </div>
+        </div>
+
+        <!-- Map Filters Card -->
+        <div class="filter-card">
+          <h4>🗺️ Map Filters</h4>
+          <div class="map-filters-flex-row">
+            <div class="filter-item-mini">
+              <label>Heatmap Mode</label>
+              <select id="map-heatmap-mode">
+                <option value="none">Standard Pins only</option>
+                <option value="all_disasters" selected>🔥 Combined Disaster Risk</option>
+                <option value="Flood">🌧️ Flood Risk</option>
+                <option value="Drought">☀️ Drought Risk</option>
+                <option value="Typhoon">🌀 Typhoon Risk</option>
+                <option value="Pest">🐛 Pest Infestation</option>
+                <option value="Disease">🦠 Crop Disease</option>
+              </select>
+            </div>
+            <div class="filter-item-mini">
+              <label>Geographic View</label>
+              <select id="map-geo-view">
+                <option value="regional" selected>Region X (Regional)</option>
+                <option value="nationwide">Philippines (Nationwide)</option>
+              </select>
+            </div>
+            <div class="filter-item-mini">
+              <label>Spatial Resolution</label>
+              <select id="map-spatial-resolution">
+                <option value="smooth" selected>Smooth Gradient</option>
+                <option value="province">Provinces</option>
+                <option value="municipality">Municipalities</option>
+                <option value="barangay">Barangays</option>
+              </select>
+            </div>
+            <div class="filter-item-mini">
+              <label>Province</label>
+              <select id="map-filter-province">
+                <option value="all">All Provinces</option>
+              </select>
+            </div>
+            <div class="filter-item-mini">
+              <label>Municipality</label>
+              <select id="map-filter-municipality">
+                <option value="all">All Municipalities</option>
+              </select>
+            </div>
+            <div class="filter-item-mini">
+              <label>Barangay</label>
+              <select id="map-filter-barangay">
+                <option value="all">All Barangays</option>
+              </select>
+            </div>
+            <div class="filter-item-mini">
+              <label>Crop Type</label>
+              <select id="map-filter-crop">
+                <option value="all">All Crops</option>
+                <option value="Rice">Rice</option>
+                <option value="Corn">Corn</option>
+                <option value="Coconut">Coconut</option>
+                <option value="Vegetables">Vegetables</option>
+                <option value="Fruits">Fruits</option>
+              </select>
+            </div>
+            <div class="filter-item-mini">
+              <label>Date Range</label>
+              <select id="map-filter-date">
+                <option value="all">All Time</option>
+                <option value="week">Past Week</option>
+                <option value="month">Past Month</option>
+                <option value="custom">Custom Range</option>
+              </select>
+            </div>
+            <div id="map-custom-date-container-start" class="filter-item-mini hidden">
+              <label>Start Date</label>
+              <input type="date" id="map-filter-start-date">
+            </div>
+            <div id="map-custom-date-container-end" class="filter-item-mini hidden">
+              <label>End Date</label>
+              <input type="date" id="map-filter-end-date">
+            </div>
+            <div class="filter-item-mini">
+              <label>Disaster Type</label>
+              <select id="map-filter-disaster">
+                <option value="all">All Types</option>
+                <option value="Flood">Flood</option>
+                <option value="Drought">Drought</option>
+                <option value="Typhoon">Typhoon</option>
+                <option value="Pest">Pest Infestation</option>
+                <option value="Disease">Crop Disease</option>
+              </select>
+            </div>
+            <div class="filter-item-mini">
+              <label>Status</label>
+              <select id="map-filter-status">
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="verified">Verified</option>
+                <option value="responded">Responded</option>
+              </select>
+            </div>
+            <div class="map-action-buttons">
+              <button id="btn-toggle-map-style" class="map-action-btn secondary">🛰️ Satellite View</button>
+              <button id="btn-reset-map-filters" class="map-action-btn">🔄 Reset</button>
+              <button id="btn-export-csv" class="map-action-btn primary">📥 Export CSV</button>
+              <button id="btn-export-pdf" class="map-action-btn primary">📄 Print PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Map Container & Legend layout -->
+        <div class="map-panel-split-layout">
+          <div class="map-main-box">
+            <div class="map-top-bar">
+              <span>Interactive Map - Northern Mindanao Region</span>
+              <span id="map-incident-counter-label">Showing 0 crop damage report(s) on the map</span>
+            </div>
+            <div id="admin-map" class="admin-leaflet-map-element"></div>
+          </div>
+
+          <aside class="map-legend-sidebar">
+            <div class="legend-card">
+              <h3>Map Legend</h3>
+              <div class="legend-list">
+                <div class="legend-list-item">
+                  <span class="legend-dot red"></span>
+                  <div class="legend-text">
+                    <strong>Pending</strong>
+                    <span>Awaiting review</span>
+                  </div>
+                </div>
+                <div class="legend-list-item">
+                  <span class="legend-dot green"></span>
+                  <div class="legend-text">
+                    <strong>Verified</strong>
+                    <span>Report verified</span>
+                  </div>
+                </div>
+                <div class="legend-list-item">
+                  <span class="legend-dot blue"></span>
+                  <div class="legend-text">
+                    <strong>Responded</strong>
+                    <span>Action taken</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="legend-card" id="heatmap-legend-card">
+              <h3>Heatmap Risk Scale</h3>
+              <div class="heatmap-legend-gradient-bar"></div>
+              <div class="heatmap-legend-labels">
+                <span class="hl-label" style="color: #006432;">Very Low</span>
+                <span class="hl-label" style="color: #4ba84b;">Low</span>
+                <span class="hl-label" style="color: #b0a20e;">Mod</span>
+                <span class="hl-label" style="color: #e67e22;">High</span>
+                <span class="hl-label" style="color: #d32f2f;">Severe</span>
+                <span class="hl-label" style="color: #8b0000;">Critical</span>
+              </div>
+            </div>
+
+            <div class="legend-card">
+              <h3>Disaster Types</h3>
+              <div id="map-legend-disasters-stats" class="legend-disaster-list">
+                <!-- Statistics generated dynamically -->
+              </div>
+            </div>
+
+            <div class="legend-card">
+              <h3>Reports List</h3>
+              <p class="filter-subtitle" style="margin-top: -6px; margin-bottom: 8px; font-size: 11px;">Click marker on map to view details</p>
+              <div id="map-sidebar-reports-list" class="sidebar-reports-list">
+                <div class="no-data" style="font-size: 12px; padding: 10px; text-align: center; color: var(--text-muted);">Loading map records...</div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- SETTINGS PANEL -->
+      <section id="panel-settings" class="content-panel">
+        <div class="panel-intro">
+          <h2>Settings</h2>
+          <p>Configure DA official credentials and system constants</p>
+        </div>
+        <div class="settings-card-wrapper">
+          <div class="table-card">
+            <div class="table-card-header">
+              <h3>Administrator Account Details</h3>
+            </div>
+            <div class="settings-form-body">
+              <div class="form-group">
+                <label>Official Full Name</label>
+                <input type="text" id="settings-admin-fullname" readonly>
+              </div>
+              <div class="form-group">
+                <label>Username / Email</label>
+                <input type="text" id="settings-admin-username" readonly>
+              </div>
+              <div class="form-group">
+                <label>Assigned Department Branch</label>
+                <input type="text" value="Department of Agriculture - Region 10" readonly>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hidden layout for printed PDFs -->
+      <div id="pdf-print-layout" class="pdf-print-layout"></div>
+    </main>
+  </div>
+
+  <!-- ==========================================
+       3. REVIEW DRAWER (Validation details)
+       ========================================== -->
+  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+  <aside id="report-drawer" class="report-drawer hidden">
+    <div class="drawer-header">
+      <h2>Damage Report Verification</h2>
+      <button id="btn-close-drawer" class="close-btn">&times;</button>
+    </div>
+    <div class="drawer-body">
+      
+      <!-- Uploaded image preview -->
+      <div class="drawer-section">
+        <h3>Uploaded Crop Photo</h3>
+        <img id="drawer-photo" src="" alt="Damage incident crop photo" class="drawer-photo-preview">
+      </div>
+
+      <!-- Report Metadata -->
+      <div class="drawer-section grid-2">
+        <div>
+          <label>Farmer Name</label>
+          <p id="drawer-farmer-name" class="drawer-val">-</p>
+        </div>
+        <div>
+          <label>Contact Info</label>
+          <p id="drawer-farmer-contact" class="drawer-val">-</p>
+        </div>
+        <div>
+          <label>Date Submitted</label>
+          <p id="drawer-date" class="drawer-val">-</p>
+        </div>
+        <div>
+          <label>Disaster Classification</label>
+          <p id="drawer-disaster-type" class="drawer-val">-</p>
+        </div>
+        <div>
+          <label>GPS Centroid</label>
+          <p id="drawer-gps" class="drawer-val">-</p>
+        </div>
+      </div>
+
+      <!-- Description details -->
+      <div class="drawer-section">
+        <label>Incident Details</label>
+        <div class="drawer-text-box">
+          <p id="drawer-details">-</p>
+        </div>
+      </div>
+
+      <!-- Farm coordinates map drawing outline -->
+      <div class="drawer-section">
+        <label>Farm Boundary Mapping</label>
+        <div id="drawer-map" class="drawer-mini-map-element"></div>
+      </div>
+
+      <!-- Surrounding Farm Validation Module -->
+      <div class="drawer-section validation-card-wrapper" id="surrounding-validation-card">
+        <h3>Surrounding Farm Validation</h3>
+        <p class="filter-subtitle" style="margin-top: -6px; margin-bottom: 12px; font-size: 11px;">Cross-reference damage report with nearby farms</p>
+        
+        <div class="validation-input-row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <label style="margin: 0; text-transform: none; font-size: 12px;">Search Radius:</label>
+          <select id="validation-radius-select" style="width: 120px; padding: 6px; border-radius: 6px; border: 1px solid var(--card-border); background-color: #ffffff; font-size: 12px; color: var(--text-main); outline: none;">
+            <option value="1">1 km Radius</option>
+            <option value="3" selected>3 km Radius</option>
+            <option value="5">5 km Radius</option>
+            <option value="10">10 km Radius</option>
+          </select>
+        </div>
+
+        <div class="confidence-container" style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px; background-color: #f7faf8; padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+          <div class="confidence-circle-box" style="position: relative; width: 60px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+            <svg width="60" height="60" viewBox="0 0 60 60">
+              <circle cx="30" cy="30" r="25" stroke="#e9ecea" stroke-width="5" fill="transparent"/>
+              <circle id="confidence-progress-ring" cx="30" cy="30" r="25" stroke="var(--brand-green)" stroke-width="5" fill="transparent"
+                      stroke-dasharray="157.08" stroke-dashoffset="157.08" stroke-linecap="round" style="transition: stroke-dashoffset 0.5s ease; transform: rotate(-90deg); transform-origin: 50% 50%;"/>
+            </svg>
+            <span id="confidence-percentage-label" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--text-main);">0%</span>
+          </div>
+          <div class="confidence-text-details">
+            <h4 id="confidence-level-tag" style="margin: 0; font-size: 13.5px; font-weight: 700; color: var(--brand-green);">Evaluating...</h4>
+            <p id="confidence-summary-text" style="margin: 4px 0 0 0; font-size: 11px; color: var(--text-muted); line-height: 1.3;">Analyzing nearby reports...</p>
+          </div>
+        </div>
+
+        <div class="nearby-incidents-section">
+          <label style="font-size: 11px; margin-bottom: 6px;">Nearby Incident Reports</label>
+          <div id="nearby-incidents-list" style="max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
+            <div style="font-size: 11px; text-align: center; color: var(--text-muted); padding: 8px;">No reports within selected radius.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verification actions panel -->
+      <div class="drawer-section action-card-wrapper">
+        <h3>Administrative Action</h3>
+        
+        <div class="form-group">
+          <label>Review & Adjust Severity Level</label>
+          <div class="severity-selector-row">
+            <label class="sev-btn minor">
+              <input type="radio" name="drawer-severity" value="minor" id="drawer-sev-minor">
+              <span>Minor</span>
+            </label>
+            <label class="sev-btn moderate">
+              <input type="radio" name="drawer-severity" value="moderate" id="drawer-sev-moderate">
+              <span>Moderate</span>
+            </label>
+            <label class="sev-btn severe">
+              <input type="radio" name="drawer-severity" value="severe" id="drawer-sev-severe">
+              <span>Severe</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="verification-action-buttons">
+          <button id="btn-validate" class="v-btn success">Verify & Approve</button>
+          <button id="btn-reject" class="v-btn danger">Mark as Responded</button>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ==========================================
+       4. CENTERED MODALS (Reports details & Farmers details)
+       ========================================== -->
+  <div id="modal-backdrop" class="modal-backdrop hidden"></div>
+
+  <!-- Report Details Modal -->
+  <div id="report-details-modal" class="modal-card hidden">
+    <div class="modal-header">
+      <h2>Report Details</h2>
+      <button id="btn-close-report-modal" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body-split">
+      <div class="modal-left-pane">
+        <img id="modal-report-photo" src="" alt="Disease crop photo" class="modal-crop-photo">
+      </div>
+      <div class="modal-right-pane">
+        <div class="modal-section-grid">
+          <div>
+            <label>Report ID</label>
+            <p id="modal-report-id" class="modal-val">-</p>
+          </div>
+          <div>
+            <label>Status</label>
+            <span id="modal-report-status" class="status-badge pending">-</span>
+          </div>
+          <div>
+            <label>Farmer Name</label>
+            <p id="modal-report-farmer" class="modal-val">-</p>
+          </div>
+          <div>
+            <label>Location</label>
+            <p id="modal-report-location" class="modal-val">-</p>
+          </div>
+          <div>
+            <label>Crop Type</label>
+            <p id="modal-report-croptype" class="modal-val">-</p>
+          </div>
+          <div>
+            <label>Disease/Issue</label>
+            <p id="modal-report-disease" class="modal-val">-</p>
+          </div>
+          <div class="span-2">
+            <label>Date Submitted</label>
+            <p id="modal-report-date" class="modal-val">-</p>
+          </div>
+        </div>
+        <div class="modal-notes-section">
+          <label>Notes/Description</label>
+          <div class="modal-textbox">
+            <p id="modal-report-notes">-</p>
+          </div>
+        </div>
+        <div class="modal-actions-footer">
+          <button id="modal-btn-reject" class="v-btn danger">Reject Report</button>
+          <button id="modal-btn-validate" class="v-btn success">Validate Report</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Farmer Details Modal -->
+  <div id="farmer-details-modal" class="modal-card mini hidden">
+    <div class="modal-header">
+      <h2>Farmer Details</h2>
+      <button id="btn-close-farmer-modal" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body-farmer">
+      <div class="farmer-profile-summary">
+        <div class="farmer-avatar-placeholder">👤</div>
+        <div class="farmer-summary-text">
+          <h3 id="modal-farmer-fullname">-</h3>
+          <span id="modal-farmer-status-badge" class="status-badge active">Active</span>
+        </div>
+      </div>
+      <div class="farmer-details-grid">
+        <div>
+          <label>Farmer ID</label>
+          <p id="modal-farmer-id" class="modal-val">-</p>
+        </div>
+        <div>
+          <label>Status</label>
+          <p id="modal-farmer-status" class="modal-val">-</p>
+        </div>
+        <div>
+          <label>Contact Number</label>
+          <p id="modal-farmer-contact" class="modal-val">-</p>
+        </div>
+        <div>
+          <label>Email Address</label>
+          <p id="modal-farmer-email" class="modal-val">-</p>
+        </div>
+        <div class="span-2">
+          <label>Location</label>
+          <p id="modal-farmer-location" class="modal-val">-</p>
+        </div>
+        <div>
+          <label>Date Joined</label>
+          <p id="modal-farmer-joined" class="modal-val">-</p>
+        </div>
+        <div>
+          <label>Total Reports Submitted</label>
+          <p id="modal-farmer-reports-count" class="modal-val">-</p>
+        </div>
+      </div>
+      <div class="modal-footer-single">
+        <button id="modal-btn-close-farmer" class="v-btn success">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Chart.js & Leaflet JS scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Heatmap plugin script -->
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

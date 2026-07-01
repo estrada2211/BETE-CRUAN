@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriSnap - Crop Damage Reporting (Farmer)</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007E3A">
+  <!-- Fonts & Leaflet Map -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Offline / Connection Status Banner -->
+  <div id="connection-banner" class="connection-banner online">
+    <span class="status-dot"></span>
+    <span id="connection-status-text">Connected Online</span>
+  </div>
+
+  <main class="container">
+    
+    <!-- ==========================================
+         1. AUTH SCREEN (Login & Register)
+         ========================================== -->
+    <div id="auth-screen" class="auth-wrapper">
+      <div class="auth-logo-section">
+        <!-- SVG Stalk Logo -->
+        <svg class="brand-stalk-logo" viewBox="0 0 100 100">
+          <path d="M50 90 V15" stroke="#007E3A" stroke-width="4" stroke-linecap="round"/>
+          <path d="M50 30 C65 25 70 40 50 45" fill="#007E3A" stroke="#007E3A" stroke-width="2"/>
+          <path d="M50 30 C35 25 30 40 50 45" fill="#007E3A" stroke="#007E3A" stroke-width="2"/>
+          <path d="M50 45 C65 40 70 55 50 60" fill="#007E3A" stroke="#007E3A" stroke-width="2"/>
+          <path d="M50 45 C35 40 30 55 50 60" fill="#007E3A" stroke="#007E3A" stroke-width="2"/>
+          <path d="M50 60 C65 55 70 70 50 75" fill="#007E3A" stroke="#007E3A" stroke-width="2"/>
+          <path d="M50 60 C35 55 30 70 50 75" fill="#007E3A" stroke="#007E3A" stroke-width="2"/>
+        </svg>
+        <h1 class="brand-title">AgriSnap</h1>
+        <p class="brand-subtitle">Report crop damage quickly and accurately.</p>
+      </div>
+
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button id="tab-login" class="auth-tab active">Login</button>
+          <button id="tab-register" class="auth-tab">Register</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="auth-form active">
+          <div class="form-group">
+            <label for="login-username">Username / Email</label>
+            <input type="text" id="login-username" placeholder="farmer" required>
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" placeholder="••••••••" required>
+          </div>
+          <div class="forgot-pwd-row">
+            <a href="#" class="forgot-pwd-link">Forgot Password?</a>
+          </div>
+          <button type="submit" class="primary-btn">Login</button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" class="auth-form">
+          <div class="form-group">
+            <label for="register-username">Username</label>
+            <input type="text" id="register-username" placeholder="Choose a username" required>
+          </div>
+          <div class="form-group">
+            <label for="register-password">Password</label>
+            <input type="password" id="register-password" placeholder="Choose a password" required>
+          </div>
+          <div class="form-group">
+            <label for="register-fullname">Full Name</label>
+            <input type="text" id="register-fullname" placeholder="John Farmer" required>
+          </div>
+          <div class="form-group">
+            <label for="register-contact">Contact Number</label>
+            <input type="text" id="register-contact" placeholder="+63 917 123 4567" required>
+          </div>
+          <div class="form-group">
+            <label for="register-address">Address</label>
+            <input type="text" id="register-address" placeholder="Barangay San Isidro, Nueva Ecija">
+          </div>
+          <div class="form-group">
+            <label for="register-crop">Type of Crops</label>
+            <select id="register-crop">
+              <option value="Rice">Rice</option>
+              <option value="Corn">Corn</option>
+              <option value="Coconut">Coconut</option>
+              <option value="Vegetables">Vegetables</option>
+              <option value="Fruits">Fruits</option>
+            </select>
+          </div>
+          <button type="submit" class="outline-btn">Register</button>
+        </form>
+      </div>
+      <div class="auth-footer">
+        <p>Empowering farmers with digital tools</p>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         2. FARMER LANDING DASHBOARD
+         ========================================== -->
+    <div id="dashboard-view" class="app-view hidden">
+
+      <!-- ── Hero Header ── -->
+      <div class="dash-hero">
+        <div class="dash-hero-top">
+          <div class="dash-brand">
+            <svg class="dash-stalk-svg" viewBox="0 0 100 100">
+              <path d="M50 90 V15" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+              <path d="M50 30 C65 25 70 40 50 45" fill="#fff"/>
+              <path d="M50 30 C35 25 30 40 50 45" fill="#fff"/>
+              <path d="M50 45 C65 40 70 55 50 60" fill="#fff"/>
+              <path d="M50 45 C35 40 30 55 50 60" fill="#fff"/>
+            </svg>
+            <span class="dash-brand-name">AgriSnap</span>
+          </div>
+          <button id="btn-logout" class="dash-logout-btn" title="Logout">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="dash-hero-greeting">
+          <p class="dash-date-label" id="dash-date-label">Sunday, June 22</p>
+          <h1 id="welcome-title" class="dash-welcome">Good morning, John 👋</h1>
+          <p class="dash-tagline">Stay on top of your crop damage reports.</p>
+        </div>
+
+        <!-- Quick Stats Strip -->
+        <div class="dash-stats-strip">
+          <div class="dash-stat-pill">
+            <span class="dash-stat-num" id="dash-stat-pending">0</span>
+            <span class="dash-stat-lbl">Pending</span>
+          </div>
+          <div class="dash-stat-divider"></div>
+          <div class="dash-stat-pill">
+            <span class="dash-stat-num" id="dash-stat-verified">0</span>
+            <span class="dash-stat-lbl">Verified</span>
+          </div>
+          <div class="dash-stat-divider"></div>
+          <div class="dash-stat-pill">
+            <span class="dash-stat-num" id="dash-stat-responded">0</span>
+            <span class="dash-stat-lbl">Responded</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-content">
+
+        <!-- Action Cards Grid -->
+        <div class="dash-actions-grid">
+
+          <button id="btn-to-report" class="dash-action-card report-card">
+            <div class="dac-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </div>
+            <span class="dac-label">Report Damage</span>
+            <span class="dac-sub">Capture &amp; submit now</span>
+            <div class="dac-arrow">→</div>
+          </button>
+
+          <button id="btn-to-reports-list" class="dash-action-card reports-card">
+            <div class="dac-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+            </div>
+            <span class="dac-label">My Reports</span>
+            <span class="dac-sub">Track your submissions</span>
+            <div class="dac-arrow">→</div>
+          </button>
+
+          <button id="btn-to-profile" class="dash-action-card profile-card">
+            <div class="dac-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <span class="dac-label">My Profile</span>
+            <span class="dac-sub">Edit your information</span>
+            <div class="dac-arrow">→</div>
+          </button>
+
+        </div>
+
+        <!-- Latest Reports Feed Section -->
+        <div class="latest-reports-section">
+          <div class="section-header-row">
+            <h3>Recent Report Status</h3>
+            <button class="section-see-all-btn" id="btn-dash-see-all">See All →</button>
+          </div>
+          <div id="latest-reports-list" class="reports-feed">
+            <div class="no-data">No submitted reports yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         3. REPORT CROP DAMAGE VIEW
+         ========================================== -->
+    <div id="report-view" class="app-view hidden">
+      <header class="app-header page-header">
+        <button class="back-btn">←</button>
+        <h2>Report Crop Damage</h2>
+        <div class="connection-status-badge">
+          <span class="wifi-icon">📶</span>
+          <span class="badge-text">Online</span>
+        </div>
+      </header>
+
+      <div class="page-content">
+        <form id="damage-report-form">
+          <!-- Photo Evidence Card -->
+          <div class="ui-card">
+            <h4 class="card-title">Photo Evidence</h4>
+            <div class="photo-capture-area">
+              <input type="file" id="report-photo-input" accept="image/*" capture="environment" required>
+              <div id="photo-preview" class="photo-placeholder">
+                <svg class="camera-placeholder-icon" viewBox="0 0 24 24"><path fill="#007E3A" d="M4 4h3l2-2h6l2 2h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+                <p>Capture or upload photo of crop damage</p>
+              </div>
+            </div>
+            <div class="photo-actions">
+              <button type="button" id="btn-trigger-camera" class="photo-btn primary">📷 Take Photo</button>
+              <button type="button" id="btn-trigger-upload" class="photo-btn secondary">📤 Upload</button>
+            </div>
+          </div>
+
+          <!-- GPS Location Card -->
+          <div class="ui-card">
+            <div class="card-header-row">
+              <h4 class="card-title">GPS Location (Auto-attached)</h4>
+              <button type="button" id="btn-refresh-gps" class="text-link-btn">Refresh</button>
+            </div>
+            <div class="gps-field-container">
+              <span class="gps-pin-icon">📍</span>
+              <span id="gps-coordinates-val" class="gps-coords-text">Permission denied</span>
+            </div>
+            <!-- Dynamic map block for boundary mapping -->
+            <div class="boundary-map-label">Draw Farm Boundary (Boundary Polygon):</div>
+            <div class="map-toolbar-row">
+              <button type="button" id="btn-start-polygon" class="map-mini-btn">✏️ Draw Boundary</button>
+              <button type="button" id="btn-reset-polygon" class="map-mini-btn danger">🗑️ Reset Map</button>
+            </div>
+            <div id="report-map" class="report-map-element"></div>
+            <p class="map-hint">Click coordinates on the map to trace your boundary. Tap the first dot to save.</p>
+          </div>
+
+          <!-- Type of Disaster Card -->
+          <div class="ui-card">
+            <h4 class="card-title">Type of Disaster</h4>
+            <select id="report-disaster-type" required>
+              <option value="" disabled selected>Select disaster type</option>
+              <option value="Flood">Flood</option>
+              <option value="Drought">Drought</option>
+              <option value="Typhoon">Typhoon</option>
+              <option value="Pest">Pest Infestation</option>
+              <option value="Disease">Crop Disease</option>
+            </select>
+          </div>
+
+          <!-- Description Card -->
+          <div class="ui-card">
+            <h4 class="card-title">Damage Description</h4>
+            <textarea id="report-description" rows="4" placeholder="Describe the damage to your crops in detail..." required></textarea>
+            <p class="textarea-help-text">Provide details about the extent and nature of the damage</p>
+          </div>
+
+          <!-- Date and Time Card -->
+          <div class="ui-card">
+            <h4 class="card-title">Date & Time</h4>
+            <div class="date-time-display" id="report-date-time-val">-</div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="form-action-buttons">
+            <button type="button" id="btn-cancel-report" class="action-button-item secondary">Cancel</button>
+            <button type="submit" class="action-button-item primary">✓ Submit Report</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         4. MY REPORTS LIST VIEW
+         ========================================== -->
+    <div id="reports-list-view" class="app-view hidden">
+      <header class="app-header page-header">
+        <button class="back-btn">←</button>
+        <h2>My Reports</h2>
+        <span class="header-icon-right">📄</span>
+      </header>
+
+      <div class="page-content">
+        <!-- Aggregated Cards -->
+        <div class="reports-aggregates">
+          <div class="aggregate-card pending">
+            <span class="aggregate-val" id="agg-pending-count">0</span>
+            <span class="aggregate-label">Pending</span>
+          </div>
+          <div class="aggregate-card verified">
+            <span class="aggregate-val" id="agg-verified-count">0</span>
+            <span class="aggregate-label">Verified</span>
+          </div>
+          <div class="aggregate-card responded">
+            <span class="aggregate-val" id="agg-responded-count">0</span>
+            <span class="aggregate-label">Responded</span>
+          </div>
+        </div>
+
+        <!-- Offline Drafts section -->
+        <div id="pwa-drafts-container" class="drafts-section hidden">
+          <h4 class="drafts-header">Pending Sync (Offline Drafts)</h4>
+          <div id="pwa-drafts-list" class="reports-list-holder"></div>
+        </div>
+
+        <!-- List container -->
+        <div id="my-reports-list-holder" class="reports-list-holder">
+          <div class="no-data">No submitted reports yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         5. PROFILE VIEW
+         ========================================== -->
+    <div id="profile-view" class="app-view hidden">
+      <header class="app-header page-header">
+        <button class="back-btn">←</button>
+        <h2>Profile</h2>
+        <span class="header-icon-right">👤</span>
+      </header>
+
+      <div class="page-content">
+        <!-- Personal Information Card -->
+        <div class="ui-card">
+          <div class="card-header-row">
+            <div class="title-with-icon">
+              <span class="card-icon">👤</span>
+              <h4 class="card-title">Personal Information</h4>
+            </div>
+            <button id="btn-edit-profile-trigger" class="profile-card-action-btn">Edit Information</button>
+          </div>
+          <div class="profile-info-item">
+            <span class="info-label">Full Name</span>
+            <p id="profile-val-name" class="info-val">-</p>
+          </div>
+          <div class="profile-info-item">
+            <span class="info-label">📞 Contact Number</span>
+            <p id="profile-val-contact" class="info-val">-</p>
+          </div>
+          <div class="profile-info-item">
+            <span class="info-label">Address</span>
+            <p id="profile-val-address" class="info-val">-</p>
+          </div>
+          <div class="profile-info-item">
+            <span class="info-label">🌾 Type of Crops</span>
+            <p id="profile-val-crops" class="info-val">-</p>
+          </div>
+        </div>
+
+        <!-- Farm Location Card -->
+        <div class="ui-card">
+          <div class="title-with-icon">
+            <span class="card-icon">📍</span>
+            <h4 class="card-title">Farm Location</h4>
+          </div>
+          <div class="profile-info-item">
+            <span class="info-label">GPS Coordinates</span>
+            <p id="profile-val-gps" class="info-val">-</p>
+          </div>
+        </div>
+
+        <!-- Change Password Card -->
+        <div class="ui-card">
+          <div class="card-header-row">
+            <div class="title-with-icon">
+              <span class="card-icon">🔒</span>
+              <h4 class="card-title">Change Password</h4>
+            </div>
+            <button id="btn-change-pwd-trigger" class="profile-card-action-btn">Change</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         6. EDIT PROFILE VIEW
+         ========================================== -->
+    <div id="edit-profile-view" class="app-view hidden">
+      <header class="app-header page-header">
+        <button class="back-btn">←</button>
+        <h2>Edit Profile</h2>
+        <span class="header-icon-right">👤</span>
+      </header>
+
+      <div class="page-content">
+        <form id="edit-profile-form">
+          <div class="ui-card">
+            <div class="title-with-icon">
+              <span class="card-icon">👤</span>
+              <h4 class="card-title">Personal Information</h4>
+            </div>
+            <div class="form-group">
+              <label for="edit-profile-fullname">Full Name</label>
+              <input type="text" id="edit-profile-fullname" required>
+            </div>
+            <div class="form-group">
+              <label for="edit-profile-contact">Contact Number</label>
+              <input type="text" id="edit-profile-contact" required>
+            </div>
+            <div class="form-group">
+              <label for="edit-profile-address">Address</label>
+              <input type="text" id="edit-profile-address">
+            </div>
+            <div class="form-group">
+              <label for="edit-profile-crop">Type of Crops</label>
+              <select id="edit-profile-crop">
+                <option value="Rice">Rice</option>
+                <option value="Corn">Corn</option>
+                <option value="Coconut">Coconut</option>
+                <option value="Vegetables">Vegetables</option>
+                <option value="Fruits">Fruits</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="ui-card">
+            <div class="title-with-icon">
+              <span class="card-icon">📍</span>
+              <h4 class="card-title">Farm Location</h4>
+            </div>
+            <div class="form-group">
+              <label>GPS Coordinates</label>
+              <div class="input-with-button-row">
+                <input type="text" id="edit-profile-gps" readonly>
+                <button type="button" id="btn-refresh-profile-gps" class="input-inline-btn">📍</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-action-buttons">
+            <button type="button" id="btn-cancel-edit-profile" class="action-button-item secondary">Cancel</button>
+            <button type="submit" class="action-button-item primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         7. CHANGE PASSWORD VIEW
+         ========================================== -->
+    <div id="change-password-view" class="app-view hidden">
+      <header class="app-header page-header">
+        <button class="back-btn">←</button>
+        <h2>Change Password</h2>
+        <span class="header-icon-right">🔒</span>
+      </header>
+
+      <div class="page-content">
+        <form id="change-pwd-form">
+          <div class="ui-card">
+            <div class="title-with-icon">
+              <span class="card-icon">🔒</span>
+              <h4 class="card-title">Change Password</h4>
+            </div>
+            <div class="form-group">
+              <label for="change-pwd-current">Current Password</label>
+              <input type="password" id="change-pwd-current" placeholder="Enter current password" required>
+            </div>
+            <div class="form-group">
+              <label for="change-pwd-new">New Password</label>
+              <input type="password" id="change-pwd-new" placeholder="Enter new password" required>
+            </div>
+            <div class="form-group">
+              <label for="change-pwd-confirm">Confirm New Password</label>
+              <input type="password" id="change-pwd-confirm" placeholder="Re-enter new password" required>
+            </div>
+          </div>
+
+          <div class="form-action-buttons">
+            <button type="button" id="btn-cancel-change-pwd" class="action-button-item secondary">Cancel</button>
+            <button type="submit" class="action-button-item primary">Update Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         REPORT DETAILS MODAL (Farmer View)
+         ========================================== -->
+    <div id="report-details-modal" class="rpt-modal-backdrop hidden">
+      <div class="rpt-modal-sheet">
+
+        <!-- Handle bar -->
+        <div class="rpt-modal-handle"></div>
+
+        <!-- Modal Header -->
+        <div class="rpt-modal-header">
+          <div class="rpt-modal-title-group">
+            <span id="rpt-modal-id" class="rpt-modal-report-id">RPT-2026-001</span>
+            <span id="rpt-modal-status-badge" class="status-badge pending">Pending</span>
+          </div>
+          <button id="btn-close-rpt-modal" class="rpt-modal-close-btn">&times;</button>
+        </div>
+
+        <!-- Status Timeline -->
+        <div class="rpt-status-timeline">
+          <div class="rpt-timeline-step" id="tl-submitted">
+            <div class="tl-dot"></div>
+            <div class="tl-label">Submitted</div>
+          </div>
+          <div class="tl-line"></div>
+          <div class="rpt-timeline-step" id="tl-verified">
+            <div class="tl-dot"></div>
+            <div class="tl-label">Verified</div>
+          </div>
+          <div class="tl-line"></div>
+          <div class="rpt-timeline-step" id="tl-responded">
+            <div class="tl-dot"></div>
+            <div class="tl-label">Responded</div>
+          </div>
+        </div>
+
+        <!-- Modal Body (scrollable) -->
+        <div class="rpt-modal-body">
+
+          <!-- Photo Preview -->
+          <div class="rpt-detail-section">
+            <div class="rpt-section-label">📷 Photo Evidence</div>
+            <div id="rpt-modal-photo-wrap" class="rpt-photo-wrap">
+              <img id="rpt-modal-photo" src="" alt="Report Photo" class="rpt-photo-img hidden">
+              <div id="rpt-modal-no-photo" class="rpt-no-photo">No photo attached</div>
+            </div>
+          </div>
+
+          <!-- Core Info Grid -->
+          <div class="rpt-info-grid">
+            <div class="rpt-info-cell">
+              <span class="rpt-info-label">Disaster Type</span>
+              <span id="rpt-modal-type" class="rpt-info-val">—</span>
+            </div>
+            <div class="rpt-info-cell">
+              <span class="rpt-info-label">Severity</span>
+              <span id="rpt-modal-severity" class="rpt-info-val">—</span>
+            </div>
+            <div class="rpt-info-cell">
+              <span class="rpt-info-label">Date Submitted</span>
+              <span id="rpt-modal-date" class="rpt-info-val">—</span>
+            </div>
+            <div class="rpt-info-cell">
+              <span class="rpt-info-label">📍 GPS Coordinates</span>
+              <span id="rpt-modal-gps" class="rpt-info-val">—</span>
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div class="rpt-detail-section">
+            <div class="rpt-section-label">📝 Damage Description</div>
+            <div id="rpt-modal-description" class="rpt-description-box">—</div>
+          </div>
+
+          <!-- DA Notes / Feedback -->
+          <div class="rpt-detail-section" id="rpt-da-notes-section">
+            <div class="rpt-section-label">🏛️ DA Officer Notes</div>
+            <div id="rpt-modal-notes" class="rpt-da-notes-box">
+              <span class="rpt-notes-pending">No feedback from DA officer yet.</span>
+            </div>
+          </div>
+
+        </div>
+        <!-- End modal body -->
+
+      </div>
+    </div>
+
+    <!-- ==========================================
+         CONFIRM MODALS
+         ========================================== -->
+
+    <!-- Logout Confirm Modal -->
+    <div id="confirm-logout-modal" class="confirm-modal-backdrop hidden">
+      <div class="confirm-modal-card" role="dialog" aria-modal="true">
+        <div class="confirm-modal-icon logout-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </div>
+        <h3 class="confirm-modal-title">Sign Out?</h3>
+        <p class="confirm-modal-body">You'll be logged out of your AgriSnap account. Any unsynced offline drafts are safely stored.</p>
+        <div class="confirm-modal-actions">
+          <button id="confirm-logout-cancel" class="cma-btn secondary">Cancel</button>
+          <button id="confirm-logout-ok" class="cma-btn danger">Yes, Logout</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit Report Confirm Modal -->
+    <div id="confirm-submit-modal" class="confirm-modal-backdrop hidden">
+      <div class="confirm-modal-card" role="dialog" aria-modal="true">
+        <div class="confirm-modal-icon submit-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <h3 class="confirm-modal-title">Submit Report?</h3>
+        <p class="confirm-modal-body">Your crop damage report will be sent to the Department of Agriculture for review. This cannot be undone.</p>
+        <div class="confirm-modal-actions">
+          <button id="confirm-submit-cancel" class="cma-btn secondary">Go Back</button>
+          <button id="confirm-submit-ok" class="cma-btn primary">✓ Submit Now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cancel Report Confirm Modal -->
+    <div id="confirm-cancel-modal" class="confirm-modal-backdrop hidden">
+      <div class="confirm-modal-card" role="dialog" aria-modal="true">
+        <div class="confirm-modal-icon warning-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <h3 class="confirm-modal-title">Discard Report?</h3>
+        <p class="confirm-modal-body">All the information you've entered — including the photo and map boundary — will be lost.</p>
+        <div class="confirm-modal-actions">
+          <button id="confirm-cancel-stay" class="cma-btn secondary">Keep Editing</button>
+          <button id="confirm-cancel-ok" class="cma-btn danger">Discard</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success Animation Modal (after submit) -->
+    <div id="success-submit-modal" class="confirm-modal-backdrop hidden">
+      <div class="confirm-modal-card success-card" role="dialog" aria-modal="true">
+        <div class="success-checkmark">
+          <svg class="checkmark-svg" viewBox="0 0 52 52">
+            <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+            <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+          </svg>
+        </div>
+        <h3 class="confirm-modal-title">Report Submitted!</h3>
+        <p class="confirm-modal-body">Your damage report has been sent to the DA office. You'll receive a notification when it's reviewed.</p>
+        <button id="success-submit-ok" class="cma-btn primary" style="width:100%">Back to Dashboard</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Floating Notifications button at bottom left of pages (if logged in, hidden in auth) -->
+  <button id="floating-notif-btn" class="floating-notif-badge hidden">
+    <span class="notif-bell-icon">🔔</span>
+    <span id="floating-badge-count" class="floating-badge-count hidden">0</span>
+  </button>
+
+  <!-- Notifications Overlay Modal list -->
+  <div id="notif-modal-overlay" class="notif-modal-overlay hidden">
+    <div class="notif-modal-card">
+      <div class="notif-modal-header">
+        <h3>Notifications Log</h3>
+        <button id="btn-close-notif-modal" class="close-notif-modal-btn">&times;</button>
+      </div>
+      <div id="notif-modal-list-holder" class="notif-modal-body">
+        <div class="no-data">No alerts received.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Leaflet Javascript -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Main Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
