@@ -108,6 +108,35 @@ db.getConnection()
     console.error('Database connection failed:', err.message);
   });
 
+// ── Health Check (diagnose Vercel deployment) ────────────────────────────────
+app.get('/api/health', async (req, res) => {
+  const envCheck = {
+    DB_HOST:     !!process.env.DB_HOST,
+    DB_PORT:     !!process.env.DB_PORT,
+    DB_USER:     !!process.env.DB_USER,
+    DB_PASSWORD: !!process.env.DB_PASSWORD,
+    DB_NAME:     !!process.env.DB_NAME,
+    DB_SSL:      process.env.DB_SSL || 'not set',
+    JWT_SECRET:  !!process.env.JWT_SECRET,
+    NODE_ENV:    process.env.NODE_ENV || 'not set',
+    VERCEL:      !!process.env.VERCEL
+  };
+
+  let dbStatus = 'unknown';
+  let dbError = null;
+  try {
+    const conn = await db.getConnection();
+    const [rows] = await conn.query('SELECT 1 AS ok');
+    dbStatus = rows[0].ok === 1 ? 'connected' : 'unexpected';
+    conn.release();
+  } catch (err) {
+    dbStatus = 'error';
+    dbError = err.message;
+  }
+
+  res.json({ status: 'ok', env: envCheck, database: { status: dbStatus, error: dbError } });
+});
+
 // ── Authentication Middleware ─────────────────────────────────────────────────
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
