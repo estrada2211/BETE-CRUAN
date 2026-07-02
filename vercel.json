@@ -24,6 +24,11 @@
     },
     {
       "src": "/admin$",
+      "status": 308,
+      "headers": { "Location": "/admin/" }
+    },
+    {
+      "src": "/admin/$",
       "dest": "/ADMIN SIDE/index.html"
     },
     {
