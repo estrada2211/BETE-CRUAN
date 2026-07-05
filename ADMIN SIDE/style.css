@@ -1812,6 +1812,12 @@ tbody tr:hover { background-color: #f8fafc; }
   cursor: pointer !important;
 }
 
+/* Blend standard Leaflet image overlay for a seamless Zoom Earth feel */
+.leaflet-image-pane img {
+  mix-blend-mode: multiply;
+  filter: saturate(1.15) contrast(1.05);
+}
+
 /* Hidden container utility */
 .hidden {
   display: none !important;
