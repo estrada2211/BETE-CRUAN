@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `address` VARCHAR(255) DEFAULT NULL,
   `crop_type` VARCHAR(100) DEFAULT 'Rice',
   `status` ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+  `boundary_polygon` LONGTEXT DEFAULT NULL,
+  `pending_boundary_polygon` LONGTEXT DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
