@@ -204,7 +204,7 @@ function checkAuth() {
   }
 }
 
-// Monitor all input fields inside .input-with-icon to toggle .has-content class
+// Monitor all input fields inside .input-with-icon to toggle .has-content and .has-focus classes
 document.querySelectorAll('.input-with-icon input').forEach(input => {
   const container = input.closest('.input-with-icon');
   if (!container) return;
@@ -219,6 +219,15 @@ document.querySelectorAll('.input-with-icon input').forEach(input => {
 
   input.addEventListener('input', updateState);
   input.addEventListener('change', updateState);
+  
+  input.addEventListener('focus', () => {
+    container.classList.add('has-focus');
+  });
+  input.addEventListener('blur', () => {
+    container.classList.remove('has-focus');
+    updateState();
+  });
+
   // Run initially in case of autofill
   setTimeout(updateState, 200);
 });
