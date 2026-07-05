@@ -189,7 +189,7 @@ const requireAdmin = (req, res, next) => {
    ========================================================================== */
 
 app.post('/api/auth/register', async (req, res) => {
-  const { username, password, role, fullName, contactNumber, address, cropType, adminCode } = req.body;
+  const { username, password, role, fullName, contactNumber, address, cropType, adminCode, boundaryPolygon } = req.body;
 
   if (!username || !password || !fullName) {
     return res.status(400).json({ error: 'Username, password, and full name are required.' });
@@ -212,10 +212,19 @@ app.post('/api/auth/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
+    const defaultStatus = userRole === 'farmer' ? 'inactive' : 'active';
     const [result] = await db.query(
-      'INSERT INTO users (username, password_hash, role, full_name, contact_number, address, crop_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [username, passwordHash, userRole, fullName, contactNumber || null, address || null, cropType || 'Rice', 'active']
+      'INSERT INTO users (username, password_hash, role, full_name, contact_number, address, crop_type, status, boundary_polygon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [username, passwordHash, userRole, fullName, contactNumber || null, address || null, cropType || 'Rice', defaultStatus, boundaryPolygon || null]
     );
+
+    if (userRole === 'farmer') {
+      const [admins] = await db.query('SELECT id FROM users WHERE role = "admin"');
+      const msg = `[New Farmer] Farmer FMR-2026-${String(result.insertId).padStart(3, '0')} (${fullName}) has registered and requires verification.`;
+      for (const admin of admins) {
+        await db.query('INSERT INTO notifications (user_id, message) VALUES (?, ?)', [admin.id, msg]);
+      }
+    }
 
     res.status(201).json({
       message: 'Registration successful.',
@@ -224,6 +233,78 @@ app.post('/api/auth/register', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error occurred during registration.' });
+  }
+});
+
+// Forgot Password for Farmers
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { username, contactNumber, newPassword } = req.body;
+  if (!username || !contactNumber || !newPassword) {
+    return res.status(400).json({ error: 'Username, contact number, and new password are required.' });
+  }
+  try {
+    const [users] = await db.query(
+      'SELECT id FROM users WHERE username = ? AND role = "farmer"',
+      [username]
+    );
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'Farmer account not found.' });
+    }
+    const farmer = users[0];
+    
+    // Fetch contact details from DB
+    const [details] = await db.query(
+      'SELECT contact_number FROM users WHERE id = ?',
+      [farmer.id]
+    );
+    
+    const dbContact = details[0]?.contact_number;
+    if (!dbContact || dbContact.replace(/[^0-9]/g, '') !== contactNumber.replace(/[^0-9]/g, '')) {
+      return res.status(400).json({ error: 'Verification failed. Contact number does not match.' });
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
+
+    await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, farmer.id]);
+    res.json({ message: 'Password reset successful. You can now log in.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error occurred during password reset.' });
+  }
+});
+
+// Forgot Password for Admins
+app.post('/api/auth/admin/forgot-password', async (req, res) => {
+  const { username, adminCode, newPassword } = req.body;
+  if (!username || !adminCode || !newPassword) {
+    return res.status(400).json({ error: 'Username, admin secret code, and new password are required.' });
+  }
+  
+  if (adminCode !== ADMIN_SECRET_CODE) {
+    return res.status(403).json({ error: 'Invalid admin secret code.' });
+  }
+
+  try {
+    const [users] = await db.query(
+      'SELECT id FROM users WHERE username = ? AND role = "admin"',
+      [username]
+    );
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'Admin account not found.' });
+    }
+    const adminUser = users[0];
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
+
+    await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, adminUser.id]);
+    res.json({ message: 'Admin password reset successful. You can now log in.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error occurred during password reset.' });
   }
 });
 
@@ -242,7 +323,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const user = users[0];
     if (user.status === 'inactive') {
-      return res.status(403).json({ error: 'Your account has been deactivated. Please contact support.' });
+      return res.status(403).json({ error: 'Your account is pending approval or has been deactivated. Please contact support.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
@@ -266,7 +347,9 @@ app.post('/api/auth/login', async (req, res) => {
         fullName: user.full_name,
         contactNumber: user.contact_number,
         address: user.address,
-        cropType: user.crop_type
+        cropType: user.crop_type,
+        boundaryPolygon: user.boundary_polygon,
+        pendingBoundaryPolygon: user.pending_boundary_polygon
       }
     });
   } catch (err) {
@@ -282,7 +365,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
-      'SELECT id, username, full_name, contact_number, address, crop_type, status, created_at FROM users WHERE id = ?',
+      'SELECT id, username, full_name, contact_number, address, crop_type, status, boundary_polygon AS boundaryPolygon, pending_boundary_polygon AS pendingBoundaryPolygon, created_at FROM users WHERE id = ?',
       [req.user.id]
     );
 
@@ -298,22 +381,60 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/profile', authenticateToken, async (req, res) => {
-  const { fullName, contactNumber, address, cropType } = req.body;
+  const { fullName, contactNumber, address, cropType, boundaryPolygon } = req.body;
 
   if (!fullName) {
     return res.status(400).json({ error: 'Full name is required.' });
   }
 
   try {
-    await db.query(
-      'UPDATE users SET full_name = ?, contact_number = ?, address = ?, crop_type = ? WHERE id = ?',
-      [fullName, contactNumber || null, address || null, cropType || 'Rice', req.user.id]
+    // Check if boundary changed
+    const [currentUserRows] = await db.query(
+      'SELECT boundary_polygon FROM users WHERE id = ?',
+      [req.user.id]
     );
 
-    res.json({
-      message: 'Profile updated successfully.',
-      user: { fullName, contactNumber, address, cropType }
-    });
+    const oldBoundary = currentUserRows[0] ? currentUserRows[0].boundary_polygon : null;
+    let isBoundaryChanged = false;
+
+    if (boundaryPolygon !== undefined && boundaryPolygon !== oldBoundary) {
+      isBoundaryChanged = true;
+    }
+
+    if (isBoundaryChanged) {
+      // Save boundary to pending_boundary_polygon, keep existing boundary_polygon as is
+      await db.query(
+        'UPDATE users SET full_name = ?, contact_number = ?, address = ?, crop_type = ?, pending_boundary_polygon = ? WHERE id = ?',
+        [fullName, contactNumber || null, address || null, cropType || 'Rice', boundaryPolygon, req.user.id]
+      );
+
+      // Create notification for all admin users
+      const [admins] = await db.query('SELECT id FROM users WHERE role = "admin"');
+      const msg = `[Boundary Change] Farmer FMR-2026-${String(req.user.id).padStart(3, '0')} (${fullName}) has updated their farm boundary. Action required.`;
+      
+      for (const admin of admins) {
+        await db.query(
+          'INSERT INTO notifications (user_id, message) VALUES (?, ?)',
+          [admin.id, msg]
+        );
+      }
+
+      res.json({
+        message: 'Profile updated successfully. Farm boundary change is pending administrator approval.',
+        user: { fullName, contactNumber, address, cropType, pendingBoundaryPolygon: boundaryPolygon }
+      });
+    } else {
+      // Normal update
+      await db.query(
+        'UPDATE users SET full_name = ?, contact_number = ?, address = ?, crop_type = ? WHERE id = ?',
+        [fullName, contactNumber || null, address || null, cropType || 'Rice', req.user.id]
+      );
+
+      res.json({
+        message: 'Profile updated successfully.',
+        user: { fullName, contactNumber, address, cropType }
+      });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update profile info.' });
@@ -486,7 +607,8 @@ app.get('/api/admin/farmers', authenticateToken, requireAdmin, async (req, res) 
   try {
     const query = `
       SELECT u.id, u.username, u.full_name AS fullName, u.contact_number AS contactNumber, 
-             u.address, u.crop_type AS cropType, u.status, u.created_at AS createdAt, 
+             u.address, u.crop_type AS cropType, u.status, u.boundary_polygon AS boundaryPolygon,
+             u.pending_boundary_polygon AS pendingBoundaryPolygon, u.created_at AS createdAt, 
              COUNT(r.id) AS reportCount
       FROM users u
       LEFT JOIN reports r ON u.id = r.farmer_id
@@ -515,10 +637,87 @@ app.put('/api/admin/farmers/:id/status', authenticateToken, requireAdmin, async 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Farmer not found.' });
     }
+
+    // Notify farmer of status update
+    const msg = status === 'active'
+      ? 'Your farmer account has been accepted and verified by the administrator.'
+      : 'Your farmer account has been deactivated by the administrator.';
+    await db.query('INSERT INTO notifications (user_id, message) VALUES (?, ?)', [id, msg]);
+
     res.json({ message: `Farmer account status updated to ${status}.`, userId: id, status });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update farmer account status.' });
+  }
+});
+
+// Approve farmer boundary change
+app.post('/api/admin/farmers/:id/approve-boundary', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [users] = await db.query(
+      'SELECT full_name, pending_boundary_polygon FROM users WHERE id = ? AND role = "farmer"',
+      [id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'Farmer not found.' });
+    }
+
+    const farmer = users[0];
+    if (!farmer.pending_boundary_polygon) {
+      return res.status(400).json({ error: 'No pending boundary change found for this farmer.' });
+    }
+
+    await db.query(
+      'UPDATE users SET boundary_polygon = pending_boundary_polygon, pending_boundary_polygon = NULL WHERE id = ?',
+      [id]
+    );
+
+    // Notify farmer
+    const msg = 'Your farm boundary change request has been approved by the administrator.';
+    await db.query('INSERT INTO notifications (user_id, message) VALUES (?, ?)', [id, msg]);
+
+    res.json({ message: 'Farmer boundary approved successfully.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to approve farmer boundary.' });
+  }
+});
+
+// Reject farmer boundary change
+app.post('/api/admin/farmers/:id/reject-boundary', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [users] = await db.query(
+      'SELECT full_name, pending_boundary_polygon FROM users WHERE id = ? AND role = "farmer"',
+      [id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'Farmer not found.' });
+    }
+
+    const farmer = users[0];
+    if (!farmer.pending_boundary_polygon) {
+      return res.status(400).json({ error: 'No pending boundary change found for this farmer.' });
+    }
+
+    await db.query(
+      'UPDATE users SET pending_boundary_polygon = NULL WHERE id = ?',
+      [id]
+    );
+
+    // Notify farmer
+    const msg = 'Your farm boundary change request has been rejected by the administrator.';
+    await db.query('INSERT INTO notifications (user_id, message) VALUES (?, ?)', [id, msg]);
+
+    res.json({ message: 'Farmer boundary rejected successfully.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to reject farmer boundary.' });
   }
 });
 
