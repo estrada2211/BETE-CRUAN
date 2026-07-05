@@ -1190,6 +1190,10 @@ function initAdminMap() {
   polygonLayerGroup = L.layerGroup().addTo(adminMap);
   markerLayerGroup = L.layerGroup().addTo(adminMap);
 
+  adminMap.on('zoomend', () => {
+    refreshAdminMap();
+  });
+
   btnToggleMapStyle.addEventListener('click', () => {
     if (currentMapStyle === 'standard') {
       adminMap.removeLayer(standardTileLayer);
@@ -1335,14 +1339,16 @@ function refreshAdminMap() {
       let sigma;
       let epsilon;
 
+      const zoom = adminMap ? adminMap.getZoom() : 9;
+
       if (selectedGeoView === 'regional') {
         bounds = [[7.2, 123.4], [9.4, 125.6]];
-        sigma = 0.65;
-        epsilon = 0.015;
+        sigma = 0.55 * Math.pow(2, 9 - zoom);
+        epsilon = 0.015 * Math.pow(2, 9 - zoom);
       } else {
         bounds = [[4.5, 116.5], [21.5, 127.0]];
-        sigma = 3.5;
-        epsilon = 0.25;
+        sigma = 3.0 * Math.pow(2, 6 - zoom);
+        epsilon = 0.25 * Math.pow(2, 6 - zoom);
       }
 
       const latMin = bounds[0][0];
@@ -1401,7 +1407,8 @@ function refreshAdminMap() {
           imgData.data[idx] = rgb[0];
           imgData.data[idx + 1] = rgb[1];
           imgData.data[idx + 2] = rgb[2];
-          imgData.data[idx + 3] = Math.round(0.6 * 255);
+          const alpha = 0.12 + decay * 0.53;
+          imgData.data[idx + 3] = Math.round(alpha * 255);
         }
       }
 
