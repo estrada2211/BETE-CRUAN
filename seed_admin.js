@@ -26,6 +26,8 @@ async function seed() {
         address VARCHAR(255) DEFAULT NULL,
         crop_type VARCHAR(100) DEFAULT 'Rice',
         status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+        boundary_polygon LONGTEXT DEFAULT NULL,
+        pending_boundary_polygon LONGTEXT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
