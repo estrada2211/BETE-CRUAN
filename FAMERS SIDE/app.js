@@ -22,6 +22,30 @@ let drawMarkers = [];
 let drawPolyline = null;
 let finalPolygon = null;
 
+// Registration map states
+let registerMap = null;
+let registerMarker = null;
+let registerCoords = { lat: 14.5995, lng: 120.9842 };
+let isRegisterDrawing = false;
+let registerDrawPoints = [];
+let registerDrawMarkers = [];
+let registerDrawPolyline = null;
+let registerFinalPolygon = null;
+
+// Profile View map states
+let profileViewMap = null;
+let profileViewPolygon = null;
+let profilePendingPolygon = null;
+
+// Profile Edit map states
+let profileEditMap = null;
+let profileEditMarker = null;
+let isProfileEditDrawing = false;
+let profileEditDrawPoints = [];
+let profileEditDrawMarkers = [];
+let profileEditDrawPolyline = null;
+let profileEditFinalPolygon = null;
+
 // IndexedDB Setup for Offline Drafts
 let idbDatabase = null;
 const request = indexedDB.open('AgriSnapDB', 1);
@@ -271,6 +295,9 @@ tabRegister.addEventListener('click', () => {
   tabLogin.classList.remove('active');
   registerForm.classList.add('active');
   loginForm.classList.remove('active');
+  setTimeout(() => {
+    initRegisterMap();
+  }, 100);
 });
 
 // Dashboard button actions
@@ -384,16 +411,48 @@ registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('register-username').value.trim();
   const password = document.getElementById('register-password').value;
+  const confirmPassword = document.getElementById('register-confirm-password').value;
+
+  if (password !== confirmPassword) {
+    showToast('Passwords do not match.', 'error');
+    return;
+  }
+
   const fullName = document.getElementById('register-fullname').value.trim();
   const contactNumber = document.getElementById('register-contact').value.trim();
   const address = document.getElementById('register-address').value.trim();
   const cropType = document.getElementById('register-crop').value;
 
+  let boundaryData = '';
+  if (registerDrawPoints.length < 3 || !registerFinalPolygon) {
+    const lat = registerCoords.lat;
+    const lng = registerCoords.lng;
+    const offset = 0.0001; // approx 10 meters
+    const defaultPts = [
+      [lat - offset, lng - offset],
+      [lat - offset, lng + offset],
+      [lat + offset, lng + offset],
+      [lat + offset, lng - offset]
+    ];
+    boundaryData = JSON.stringify(defaultPts);
+  } else {
+    boundaryData = JSON.stringify(registerDrawPoints);
+  }
+
   try {
     const res = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, fullName, contactNumber, address, cropType, role: 'farmer' })
+      body: JSON.stringify({ 
+        username, 
+        password, 
+        fullName, 
+        contactNumber, 
+        address, 
+        cropType, 
+        role: 'farmer', 
+        boundaryPolygon: boundaryData 
+      })
     });
     
     const data = await res.json();
@@ -401,6 +460,7 @@ registerForm.addEventListener('submit', async (e) => {
       showToast('Registration successful! Please log in.');
       tabLogin.click();
       registerForm.reset();
+      resetRegisterPolygon();
     } else {
       showToast(data.error || 'Registration failed.', 'error');
     }
@@ -440,6 +500,53 @@ loginForm.addEventListener('submit', async (e) => {
     showToast('Cannot connect to authentication server.', 'error');
   }
 });
+
+// Forgot Password Modal Triggers & Form Submission
+const forgotPwdLink = document.querySelector('.forgot-pwd-link');
+const forgotPwdModal = document.getElementById('forgot-pwd-modal');
+const forgotPwdForm = document.getElementById('forgot-pwd-form');
+const btnCancelForgot = document.getElementById('btn-cancel-forgot');
+
+if (forgotPwdLink) {
+  forgotPwdLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    forgotPwdModal.classList.remove('hidden');
+  });
+}
+
+if (btnCancelForgot) {
+  btnCancelForgot.addEventListener('click', () => {
+    forgotPwdModal.classList.add('hidden');
+    forgotPwdForm.reset();
+  });
+}
+
+if (forgotPwdForm) {
+  forgotPwdForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('forgot-username').value.trim();
+    const contactNumber = document.getElementById('forgot-contact').value.trim();
+    const newPassword = document.getElementById('forgot-new-password').value;
+
+    try {
+      const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, contactNumber, newPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Password reset successful! You can now log in.');
+        forgotPwdModal.classList.add('hidden');
+        forgotPwdForm.reset();
+      } else {
+        showToast(data.error || 'Password reset failed.', 'error');
+      }
+    } catch (err) {
+      showToast('Cannot connect to authentication server.', 'error');
+    }
+  });
+}
 
 /* ==========================================================================
    MAP & GEOLOCATION & DRAWING
@@ -600,6 +707,414 @@ btnResetPolygon.addEventListener('click', () => {
   drawPoints = [];
   showToast('Map drawings reset.');
 });
+
+/* ==========================================================================
+   REGISTRATION & PROFILE MAPS
+   ========================================================================== */
+
+function initRegisterMap() {
+  if (registerMap) {
+    registerMap.invalidateSize();
+    return;
+  }
+
+  registerMap = L.map('register-map', {
+    zoomControl: true,
+    maxZoom: 18
+  }).setView([14.5995, 120.9842], 13); // Manila default
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(registerMap);
+
+  // Initialize draggable marker
+  registerMarker = L.marker([14.5995, 120.9842], {
+    draggable: true,
+    title: "Drag this pin to your farm center"
+  }).addTo(registerMap);
+
+  registerMarker.bindTooltip("Drag this pin to your farm center", { permanent: true, direction: 'top' });
+
+  registerMarker.on('dragend', function(e) {
+    const latlng = e.target.getLatLng();
+    registerCoords = { lat: latlng.lat, lng: latlng.lng };
+    showToast(`Farm location pinned: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`);
+  });
+
+  // Try to use geolocate for register startup
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      registerCoords = { lat, lng };
+      registerMarker.setLatLng([lat, lng]);
+      registerMap.setView([lat, lng], 15);
+    });
+  }
+
+  // Polygon Drawing Clicks
+  registerMap.on('click', function(e) {
+    if (!isRegisterDrawing) return;
+
+    const latlng = e.latlng;
+    registerDrawPoints.push([latlng.lat, latlng.lng]);
+
+    // Draw vertex marker
+    const marker = L.circleMarker(latlng, {
+      radius: 6,
+      fillColor: '#007E3A',
+      color: '#ffffff',
+      weight: 2,
+      fillOpacity: 1
+    }).addTo(registerMap);
+
+    registerDrawMarkers.push(marker);
+
+    // If first marker, close on click
+    if (registerDrawMarkers.length === 1) {
+      marker.bindTooltip("Close boundary polygon", { permanent: false, direction: 'top' });
+      marker.on('click', function(evt) {
+        L.DomEvent.stopPropagation(evt);
+        if (isRegisterDrawing && registerDrawPoints.length >= 3) {
+          saveRegisterPolygonDrawing();
+        }
+      });
+    }
+
+    if (registerDrawPolyline) {
+      registerDrawPolyline.setLatLngs(registerDrawPoints);
+    } else {
+      registerDrawPolyline = L.polyline(registerDrawPoints, { color: '#007E3A', weight: 3, dashArray: '5, 5' }).addTo(registerMap);
+    }
+  });
+
+  const btnLocateReg = document.getElementById('btn-locate-register');
+  const btnStartReg = document.getElementById('btn-start-register-polygon');
+  const btnResetReg = document.getElementById('btn-reset-register-polygon');
+
+  btnLocateReg.replaceWith(btnLocateReg.cloneNode(true));
+  btnStartReg.replaceWith(btnStartReg.cloneNode(true));
+  btnResetReg.replaceWith(btnResetReg.cloneNode(true));
+
+  document.getElementById('btn-locate-register').addEventListener('click', () => {
+    if (navigator.geolocation) {
+      showToast("Retrieving your device location...");
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          registerCoords = { lat, lng };
+          registerMarker.setLatLng([lat, lng]);
+          registerMap.setView([lat, lng], 16);
+          showToast("Location updated successfully! Drag the pin if needed.");
+        },
+        (err) => {
+          showToast("Unable to access device location. Please enable location services.", "error");
+        }
+      );
+    } else {
+      showToast("Geolocation is not supported by your browser.", "error");
+    }
+  });
+
+  document.getElementById('btn-start-register-polygon').addEventListener('click', () => {
+    if (isRegisterDrawing) {
+      if (registerDrawPoints.length >= 3) {
+        saveRegisterPolygonDrawing();
+      } else {
+        showToast('Boundary needs at least 3 points.', 'warning');
+      }
+    } else {
+      isRegisterDrawing = true;
+      document.getElementById('btn-start-register-polygon').innerText = '💾 Save Boundary';
+      document.getElementById('btn-start-register-polygon').classList.add('active');
+      
+      if (registerFinalPolygon) {
+        registerMap.removeLayer(registerFinalPolygon);
+        registerFinalPolygon = null;
+      }
+      clearRegisterDrawingLayers();
+      showToast('Click points on map to outline farm. Click first dot to close.');
+    }
+  });
+
+  document.getElementById('btn-reset-register-polygon').addEventListener('click', () => {
+    resetRegisterPolygon();
+  });
+}
+
+function saveRegisterPolygonDrawing() {
+  isRegisterDrawing = false;
+  const btn = document.getElementById('btn-start-register-polygon');
+  if (btn) {
+    btn.innerText = '✏️ Draw Boundary';
+    btn.classList.remove('active');
+  }
+
+  registerFinalPolygon = L.polygon(registerDrawPoints, {
+    color: '#007E3A',
+    fillColor: '#007E3A',
+    fillOpacity: 0.25,
+    weight: 3
+  }).addTo(registerMap);
+
+  clearRegisterDrawingLayers();
+  showToast('Farm boundary polygon saved.');
+}
+
+function clearRegisterDrawingLayers() {
+  registerDrawMarkers.forEach(m => registerMap.removeLayer(m));
+  registerDrawMarkers = [];
+  if (registerDrawPolyline) {
+    registerMap.removeLayer(registerDrawPolyline);
+    registerDrawPolyline = null;
+  }
+}
+
+function resetRegisterPolygon() {
+  isRegisterDrawing = false;
+  const btn = document.getElementById('btn-start-register-polygon');
+  if (btn) {
+    btn.innerText = '✏️ Draw Boundary';
+    btn.classList.remove('active');
+  }
+  clearRegisterDrawingLayers();
+  if (registerFinalPolygon) {
+    registerMap.removeLayer(registerFinalPolygon);
+    registerFinalPolygon = null;
+  }
+  registerDrawPoints = [];
+  showToast('Map drawings reset.');
+}
+
+function initProfileViewMap(profile) {
+  if (!profileViewMap) {
+    profileViewMap = L.map('profile-view-map', {
+      zoomControl: true,
+      maxZoom: 18
+    }).setView([14.5995, 120.9842], 13);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(profileViewMap);
+  } else {
+    if (profileViewPolygon) profileViewMap.removeLayer(profileViewPolygon);
+    if (profilePendingPolygon) profileViewMap.removeLayer(profilePendingPolygon);
+    profileViewPolygon = null;
+    profilePendingPolygon = null;
+  }
+
+  const pendingBanner = document.getElementById('profile-pending-boundary-banner');
+  if (profile.pendingBoundaryPolygon) {
+    pendingBanner.classList.remove('hidden');
+  } else {
+    pendingBanner.classList.add('hidden');
+  }
+
+  let bounds = [];
+  if (profile.boundaryPolygon) {
+    try {
+      const pts = JSON.parse(profile.boundaryPolygon);
+      profileViewPolygon = L.polygon(pts, {
+        color: '#007E3A',
+        fillColor: '#007E3A',
+        fillOpacity: 0.25,
+        weight: 3
+      }).addTo(profileViewMap);
+      bounds = profileViewPolygon.getBounds();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (profile.pendingBoundaryPolygon) {
+    try {
+      const pts = JSON.parse(profile.pendingBoundaryPolygon);
+      profilePendingPolygon = L.polygon(pts, {
+        color: '#d97706',
+        fillColor: '#d97706',
+        fillOpacity: 0.15,
+        weight: 3,
+        dashArray: '5, 5'
+      }).addTo(profileViewMap);
+      
+      // fit bounds to pending boundary
+      bounds = profilePendingPolygon.getBounds();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (bounds && bounds.isValid && bounds.isValid()) {
+    profileViewMap.fitBounds(bounds, { padding: [20, 20] });
+  }
+
+  setTimeout(() => {
+    profileViewMap.invalidateSize();
+  }, 100);
+}
+
+function initProfileEditMap(profile) {
+  if (!profileEditMap) {
+    profileEditMap = L.map('profile-edit-map', {
+      zoomControl: true,
+      maxZoom: 18
+    }).setView([14.5995, 120.9842], 13);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(profileEditMap);
+
+    profileEditMap.on('click', function(e) {
+      if (!isProfileEditDrawing) return;
+
+      const latlng = e.latlng;
+      profileEditDrawPoints.push([latlng.lat, latlng.lng]);
+
+      const marker = L.circleMarker(latlng, {
+        radius: 6,
+        fillColor: '#007E3A',
+        color: '#ffffff',
+        weight: 2,
+        fillOpacity: 1
+      }).addTo(profileEditMap);
+
+      profileEditDrawMarkers.push(marker);
+
+      if (profileEditDrawMarkers.length === 1) {
+        marker.bindTooltip("Close boundary polygon", { permanent: false, direction: 'top' });
+        marker.on('click', function(evt) {
+          L.DomEvent.stopPropagation(evt);
+          if (isProfileEditDrawing && profileEditDrawPoints.length >= 3) {
+            saveProfileEditPolygonDrawing();
+          }
+        });
+      }
+
+      if (profileEditDrawPolyline) {
+        profileEditDrawPolyline.setLatLngs(profileEditDrawPoints);
+      } else {
+        profileEditDrawPolyline = L.polyline(profileEditDrawPoints, { color: '#007E3A', weight: 3, dashArray: '5, 5' }).addTo(profileEditMap);
+      }
+    });
+
+    const btnStart = document.getElementById('btn-start-profile-polygon');
+    const btnReset = document.getElementById('btn-reset-profile-polygon');
+
+    btnStart.replaceWith(btnStart.cloneNode(true));
+    btnReset.replaceWith(btnReset.cloneNode(true));
+
+    document.getElementById('btn-start-profile-polygon').addEventListener('click', () => {
+      if (isProfileEditDrawing) {
+        if (profileEditDrawPoints.length >= 3) {
+          saveProfileEditPolygonDrawing();
+        } else {
+          showToast('Boundary needs at least 3 points.', 'warning');
+        }
+      } else {
+        isProfileEditDrawing = true;
+        document.getElementById('btn-start-profile-polygon').innerText = '💾 Save Boundary';
+        document.getElementById('btn-start-profile-polygon').classList.add('active');
+
+        if (profileEditFinalPolygon) {
+          profileEditMap.removeLayer(profileEditFinalPolygon);
+          profileEditFinalPolygon = null;
+        }
+        clearProfileEditDrawingLayers();
+        showToast('Click points on map to outline farm. Click first dot to close.');
+      }
+    });
+
+    document.getElementById('btn-reset-profile-polygon').addEventListener('click', () => {
+      resetProfileEditPolygon();
+    });
+  } else {
+    clearProfileEditDrawingLayers();
+    if (profileEditFinalPolygon) {
+      profileEditMap.removeLayer(profileEditFinalPolygon);
+      profileEditFinalPolygon = null;
+    }
+    profileEditDrawPoints = [];
+  }
+
+  let existingBoundary = profile.pendingBoundaryPolygon || profile.boundaryPolygon;
+  if (existingBoundary) {
+    try {
+      const pts = JSON.parse(existingBoundary);
+      profileEditDrawPoints = pts;
+      profileEditFinalPolygon = L.polygon(pts, {
+        color: '#007E3A',
+        fillColor: '#007E3A',
+        fillOpacity: 0.25,
+        weight: 3
+      }).addTo(profileEditMap);
+      
+      profileEditMap.fitBounds(profileEditFinalPolygon.getBounds(), { padding: [20, 20] });
+    } catch (e) {
+      console.error(e);
+    }
+  } else {
+    // try using browser geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        profileEditMap.setView([pos.coords.latitude, pos.coords.longitude], 15);
+      });
+    }
+  }
+
+  setTimeout(() => {
+    profileEditMap.invalidateSize();
+  }, 100);
+}
+
+function saveProfileEditPolygonDrawing() {
+  isProfileEditDrawing = false;
+  const btn = document.getElementById('btn-start-profile-polygon');
+  if (btn) {
+    btn.innerText = '✏️ Edit Boundary';
+    btn.classList.remove('active');
+  }
+
+  profileEditFinalPolygon = L.polygon(profileEditDrawPoints, {
+    color: '#007E3A',
+    fillColor: '#007E3A',
+    fillOpacity: 0.25,
+    weight: 3
+  }).addTo(profileEditMap);
+
+  clearProfileEditDrawingLayers();
+  
+  // also set coordinates fields
+  const center = profileEditFinalPolygon.getBounds().getCenter();
+  editProfileGps.value = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
+  showToast('Farm boundary polygon saved.');
+}
+
+function clearProfileEditDrawingLayers() {
+  profileEditDrawMarkers.forEach(m => profileEditMap.removeLayer(m));
+  profileEditDrawMarkers = [];
+  if (profileEditDrawPolyline) {
+    profileEditMap.removeLayer(profileEditDrawPolyline);
+    profileEditDrawPolyline = null;
+  }
+}
+
+function resetProfileEditPolygon() {
+  isProfileEditDrawing = false;
+  const btn = document.getElementById('btn-start-profile-polygon');
+  if (btn) {
+    btn.innerText = '✏️ Edit Boundary';
+    btn.classList.remove('active');
+  }
+  clearProfileEditDrawingLayers();
+  if (profileEditFinalPolygon) {
+    profileEditMap.removeLayer(profileEditFinalPolygon);
+    profileEditFinalPolygon = null;
+  }
+  profileEditDrawPoints = [];
+  editProfileGps.value = 'Not configured';
+  showToast('Map drawings reset.');
+}
 
 /* ==========================================================================
    CAMERA & PHOTO INPUT
@@ -1068,14 +1583,35 @@ async function loadProfileInfo() {
     });
     const profile = await res.json();
     if (res.ok) {
+      window.lastFetchedProfile = profile;
       // Set Profile display
       profileValName.innerText = profile.full_name;
       profileValContact.innerText = profile.contact_number || 'None provided';
       profileValAddress.innerText = profile.address || 'None provided';
       profileValCrops.innerText = profile.crop_type || 'Rice';
       
-      if (profile.address) {
-        profileValGps.innerText = `${currentCoords.lat.toFixed(6)}, ${currentCoords.lng.toFixed(6)}`;
+      let profileLat = 14.5995;
+      let profileLng = 120.9842;
+      let hasCoords = false;
+      
+      const activeBoundary = profile.pendingBoundaryPolygon || profile.boundaryPolygon;
+      if (activeBoundary) {
+        try {
+          const pts = JSON.parse(activeBoundary);
+          if (pts.length > 0) {
+            let sumLat = 0, sumLng = 0;
+            pts.forEach(p => { sumLat += p[0]; sumLng += p[1]; });
+            profileLat = sumLat / pts.length;
+            profileLng = sumLng / pts.length;
+            hasCoords = true;
+          }
+        } catch (e) {
+          console.error("Failed to parse boundary polygon:", e);
+        }
+      }
+
+      if (hasCoords) {
+        profileValGps.innerText = `${profileLat.toFixed(6)}, ${profileLng.toFixed(6)}`;
       } else {
         profileValGps.innerText = 'Not configured';
       }
@@ -1085,14 +1621,24 @@ async function loadProfileInfo() {
       editProfileContact.value = profile.contact_number || '';
       editProfileAddress.value = profile.address || '';
       editProfileCrop.value = profile.crop_type || 'Rice';
-      editProfileGps.value = `${currentCoords.lat.toFixed(6)}, ${currentCoords.lng.toFixed(6)}`;
+      editProfileGps.value = hasCoords ? `${profileLat.toFixed(6)}, ${profileLng.toFixed(6)}` : 'Not configured';
+
+      // Initialize profile maps
+      initProfileViewMap(profile);
     }
   } catch (err) {
     console.error(err);
   }
 }
 
-btnEditProfileTrigger.addEventListener('click', () => navigateTo('edit-profile-view'));
+btnEditProfileTrigger.addEventListener('click', () => {
+  navigateTo('edit-profile-view');
+  setTimeout(() => {
+    if (window.lastFetchedProfile) {
+      initProfileEditMap(window.lastFetchedProfile);
+    }
+  }, 100);
+});
 btnCancelEditProfile.addEventListener('click', () => navigateTo('profile-view'));
 
 btnChangePwdTrigger.addEventListener('click', () => navigateTo('change-password-view'));
@@ -1120,6 +1666,11 @@ editProfileForm.addEventListener('submit', async (e) => {
   const contactNumber = editProfileContact.value.trim();
   const address = editProfileAddress.value.trim();
   const cropType = editProfileCrop.value;
+  
+  const bodyData = { fullName, contactNumber, address, cropType };
+  if (profileEditDrawPoints.length >= 3 && profileEditFinalPolygon) {
+    bodyData.boundaryPolygon = JSON.stringify(profileEditDrawPoints);
+  }
 
   try {
     const res = await fetch(`${API_URL}/api/profile`, {
@@ -1128,11 +1679,13 @@ editProfileForm.addEventListener('submit', async (e) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ fullName, contactNumber, address, cropType })
+      body: JSON.stringify(bodyData)
     });
     
     if (res.ok) {
-      showToast('Profile changes saved successfully.');
+      const data = await res.json();
+      showToast(data.message || 'Profile changes saved successfully.');
+      loadProfileInfo();
       navigateTo('profile-view');
     } else {
       const data = await res.json();
@@ -1275,3 +1828,18 @@ function pollNotifications() {
 
 // Initial authentication verify
 checkAuth();
+
+// Toggle password visibility for farmer fields
+document.querySelectorAll('.pwd-toggle').forEach(toggle => {
+  toggle.addEventListener('click', () => {
+    const input = toggle.parentNode.querySelector('input');
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      toggle.innerText = '🙈';
+    } else {
+      input.type = 'password';
+      toggle.innerText = '👁️';
+    }
+  });
+});
