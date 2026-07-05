@@ -50,6 +50,7 @@
           <div class="input-with-icon">
             <span class="input-icon">🔒</span>
             <input type="password" id="login-password" placeholder="Enter your password" required>
+            <span class="pwd-toggle" style="position: absolute; right: 16px; cursor: pointer; user-select: none; font-size: 16px; color: #9ca3af; z-index: 10;">👁️</span>
           </div>
         </div>
         <div class="form-actions-row">
@@ -83,6 +84,7 @@
           <div class="input-with-icon">
             <span class="input-icon">🔒</span>
             <input type="password" id="reg-password" placeholder="Create a password" required>
+            <span class="pwd-toggle" style="position: absolute; right: 16px; cursor: pointer; user-select: none; font-size: 16px; color: #9ca3af; z-index: 10;">👁️</span>
           </div>
         </div>
         <div class="form-group">
@@ -90,6 +92,7 @@
           <div class="input-with-icon">
             <span class="input-icon">🔒</span>
             <input type="password" id="reg-confirm-password" placeholder="Re-enter your password" required>
+            <span class="pwd-toggle" style="position: absolute; right: 16px; cursor: pointer; user-select: none; font-size: 16px; color: #9ca3af; z-index: 10;">👁️</span>
           </div>
         </div>
         <div class="form-group">
@@ -97,6 +100,7 @@
           <div class="input-with-icon">
             <span class="input-icon">🔑</span>
             <input type="password" id="reg-admin-code" placeholder="Enter DA registration code" required>
+            <span class="pwd-toggle" style="position: absolute; right: 16px; cursor: pointer; user-select: none; font-size: 16px; color: #9ca3af; z-index: 10;">👁️</span>
           </div>
           <small class="field-hint">Contact your DA System Administrator for the registration code.</small>
         </div>
@@ -479,7 +483,7 @@
                 <option value="inactive">Inactive</option>
               </select>
             </div>
-            <button id="btn-export-farmers-csv" class="action-btn-styled">📥 Export Farmers</button>
+            <button id="btn-trigger-farmers-export" class="action-btn-styled">📥 Export Farmers</button>
           </div>
         </div>
 
@@ -656,8 +660,7 @@
             <div class="map-action-buttons">
               <button id="btn-toggle-map-style" class="map-action-btn secondary">🛰️ Satellite View</button>
               <button id="btn-reset-map-filters" class="map-action-btn">🔄 Reset</button>
-              <button id="btn-export-csv" class="map-action-btn primary">📥 Export CSV</button>
-              <button id="btn-export-pdf" class="map-action-btn primary">📄 Print PDF</button>
+              <button id="btn-trigger-reports-export" class="map-action-btn primary">📥 Export Reports</button>
             </div>
           </div>
         </div>
@@ -704,12 +707,12 @@
               <h3>Heatmap Risk Scale</h3>
               <div class="heatmap-legend-gradient-bar"></div>
               <div class="heatmap-legend-labels">
-                <span class="hl-label" style="color: #006432;">Very Low</span>
-                <span class="hl-label" style="color: #4ba84b;">Low</span>
-                <span class="hl-label" style="color: #b0a20e;">Mod</span>
-                <span class="hl-label" style="color: #e67e22;">High</span>
-                <span class="hl-label" style="color: #d32f2f;">Severe</span>
-                <span class="hl-label" style="color: #8b0000;">Critical</span>
+                <span class="hl-label" style="color: #2980b9;">Very Low</span>
+                <span class="hl-label" style="color: #3498db;">Low</span>
+                <span class="hl-label" style="color: #2ecc71;">Mod</span>
+                <span class="hl-label" style="color: #f1c40f;">High</span>
+                <span class="hl-label" style="color: #e67e22;">Severe</span>
+                <span class="hl-label" style="color: #e74c3c;">Critical</span>
               </div>
             </div>
 
@@ -930,7 +933,15 @@
             <label>Disease/Issue</label>
             <p id="modal-report-disease" class="modal-val">-</p>
           </div>
-          <div class="span-2">
+          <div>
+            <label>Severity Level</label>
+            <select id="modal-report-severity" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; background: #ffffff; margin-top: 4px; font-weight: 600; color: #1e293b; outline: none;">
+              <option value="minor">Minor</option>
+              <option value="moderate">Moderate</option>
+              <option value="severe">Severe</option>
+            </select>
+          </div>
+          <div>
             <label>Date Submitted</label>
             <p id="modal-report-date" class="modal-val">-</p>
           </div>
@@ -993,8 +1004,103 @@
           <p id="modal-farmer-reports-count" class="modal-val">-</p>
         </div>
       </div>
+      <!-- Farm Boundary Mapping Map -->
+      <div style="margin-top: 10px;">
+        <label style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; display: block;">Farm Boundary Mapping</label>
+        <div id="farmer-detail-map" style="width: 100%; height: 250px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 6px; z-index: 10;"></div>
+      </div>
+
+      <!-- Pending Boundary Approval Action Banner -->
+      <div id="boundary-approval-section" class="hidden" style="border: 1px dashed var(--brand-orange); background-color: #fffbeb; padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 10px;">
+         <h4 style="margin: 0; color: #d97706; font-size: 14px; font-weight: 700;">⚠️ Pending Boundary Change</h4>
+         <p style="margin: 0; font-size: 12.5px; color: #78350f; line-height: 1.4;">Farmer has submitted a new farm boundary for approval (shown in orange/red). The original boundary is shown in green.</p>
+         <div style="display: flex; gap: 12px; margin-top: 4px;">
+            <button id="btn-approve-boundary" class="v-btn success" style="flex: 1; padding: 10px 14px; font-size: 13px; font-weight: 600;">Approve Update</button>
+            <button id="btn-reject-boundary" class="v-btn danger" style="flex: 1; padding: 10px 14px; font-size: 13px; font-weight: 600;">Reject Update</button>
+         </div>
+      </div>
+      <!-- Pending Farmer Account Verification Action Banner -->
+      <div id="farmer-verification-section" class="hidden" style="border: 1px dashed var(--brand-green); background-color: #f0fdf4; padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+         <h4 style="margin: 0; color: var(--brand-green-hover); font-size: 14px; font-weight: 700;">👤 Account Pending Verification</h4>
+         <p style="margin: 0; font-size: 12.5px; color: #14532d; line-height: 1.4;">This farmer account is currently inactive and requires verification before they can sign in and submit reports.</p>
+         <div style="display: flex; gap: 12px; margin-top: 4px;">
+            <button id="btn-verify-farmer" class="v-btn success" style="flex: 1; padding: 10px 14px; font-size: 13px; font-weight: 600;">Verify & Accept Farmer</button>
+         </div>
+      </div>
       <div class="modal-footer-single">
         <button id="modal-btn-close-farmer" class="v-btn success">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Forgot Password Modal -->
+  <div id="admin-forgot-modal" class="modal-card mini hidden" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background: #ffffff; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border-radius: 16px; border: 1px solid #cbd5e1; max-width: 400px; width: calc(100% - 32px);">
+    <div class="modal-header">
+      <h2>Reset Admin Password</h2>
+      <button id="btn-close-admin-forgot" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body-farmer" style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+      <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Provide your username, registration security code, and choose a new password.</p>
+      <form id="admin-forgot-form" style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Username</label>
+          <input type="text" id="admin-forgot-username" placeholder="Admin username" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; margin-top: 4px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Admin Secret Code</label>
+          <div style="position: relative; display: flex; align-items: center; width: 100%;">
+            <input type="password" id="admin-forgot-code" placeholder="Registration Code" required style="width: 100%; padding: 10px 40px 10px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; margin-top: 4px;">
+            <span class="pwd-toggle" style="position: absolute; right: 12px; top: calc(50% + 2px); transform: translateY(-50%); cursor: pointer; user-select: none; font-size: 16px; color: #9ca3af; z-index: 10;">👁️</span>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">New Password</label>
+          <div style="position: relative; display: flex; align-items: center; width: 100%;">
+            <input type="password" id="admin-forgot-new-password" placeholder="Choose new password" required style="width: 100%; padding: 10px 40px 10px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; margin-top: 4px;">
+            <span class="pwd-toggle" style="position: absolute; right: 12px; top: calc(50% + 2px); transform: translateY(-50%); cursor: pointer; user-select: none; font-size: 16px; color: #9ca3af; z-index: 10;">👁️</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; margin-top: 8px;">
+          <button type="button" id="btn-cancel-admin-forgot" class="v-btn" style="flex: 1; background: #e2e8f0; color: #475569;">Cancel</button>
+          <button type="submit" class="v-btn success" style="flex: 1;">Reset Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Export Modal Choice Dialog -->
+  <div id="export-options-modal" class="modal-card mini hidden" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background: #ffffff; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border-radius: 16px; border: 1px solid #cbd5e1; max-width: 400px; width: calc(100% - 32px);">
+    <div class="modal-header">
+      <h2>Choose Export Format</h2>
+      <button id="btn-close-export-modal" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body-farmer" style="padding: 24px; display: flex; flex-direction: column; gap: 14px;">
+      <p style="font-size: 13px; color: var(--text-muted); margin: 0; margin-bottom: 8px;">Select the format you wish to export the data in:</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button id="export-opt-pdf" class="v-btn" style="background-color: #fef2f2; color: #b91c1c; border: 1px solid #fee2e2; display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 12px 16px; font-weight: 600; text-align: left; border-radius: 10px; transition: var(--transition);">
+          <span style="font-size: 20px;">📄</span>
+          <div>
+            <div style="font-size: 13.5px; font-weight: 700;">PDF Document</div>
+            <div style="font-size: 11px; font-weight: 400; color: #7f1d1d;">Formatted report for viewing and printing</div>
+          </div>
+        </button>
+
+        <button id="export-opt-excel" class="v-btn" style="background-color: #f0fdf4; color: #15803d; border: 1px solid #dcfce7; display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 12px 16px; font-weight: 600; text-align: left; border-radius: 10px; transition: var(--transition);">
+          <span style="font-size: 20px;">📊</span>
+          <div>
+            <div style="font-size: 13.5px; font-weight: 700;">Excel Spreadsheet</div>
+            <div style="font-size: 11px; font-weight: 400; color: #166534;">Rich spreadsheet compatible with Microsoft Excel</div>
+          </div>
+        </button>
+
+        <button id="export-opt-csv" class="v-btn" style="background-color: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 12px 16px; font-weight: 600; text-align: left; border-radius: 10px; transition: var(--transition);">
+          <span style="font-size: 20px;">📥</span>
+          <div>
+            <div style="font-size: 13.5px; font-weight: 700;">CSV Data File</div>
+            <div style="font-size: 11px; font-weight: 400; color: #1e40af;">Raw comma-separated values file for database imports</div>
+          </div>
+        </button>
       </div>
     </div>
   </div>
