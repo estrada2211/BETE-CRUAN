@@ -21,6 +21,11 @@ let satelliteTileLayer = null;
 let currentMapStyle = 'standard'; // 'standard' or 'satellite'
 let provinceGeoJsonData = null;
 
+// Farmer Detail Map state
+let farmerDetailMap = null;
+let farmerApprovedPolygon = null;
+let farmerPendingPolygon = null;
+
 async function loadProvinceGeoJson() {
   if (provinceGeoJsonData) return provinceGeoJsonData;
   try {
@@ -155,9 +160,13 @@ const btnValidate = document.getElementById('btn-validate');
 const btnReject = document.getElementById('btn-reject');
 
 // Exports
-const btnExportCsv = document.getElementById('btn-export-csv');
-const btnExportPdf = document.getElementById('btn-export-pdf');
-const btnExportFarmersCsv = document.getElementById('btn-export-farmers-csv');
+const btnTriggerReportsExport = document.getElementById('btn-trigger-reports-export');
+const btnTriggerFarmersExport = document.getElementById('btn-trigger-farmers-export');
+const exportOptionsModal = document.getElementById('export-options-modal');
+const btnCloseExportModal = document.getElementById('btn-close-export-modal');
+const exportOptPdf = document.getElementById('export-opt-pdf');
+const exportOptExcel = document.getElementById('export-opt-excel');
+const exportOptCsv = document.getElementById('export-opt-csv');
 const pdfPrintLayout = document.getElementById('pdf-print-layout');
 const toastElement = document.getElementById('toast');
 
@@ -195,6 +204,40 @@ function checkAuth() {
   }
 }
 
+// Monitor all input fields inside .input-with-icon to toggle .has-content class
+document.querySelectorAll('.input-with-icon input').forEach(input => {
+  const container = input.closest('.input-with-icon');
+  if (!container) return;
+
+  const updateState = () => {
+    if (input.value.trim() !== '') {
+      container.classList.add('has-content');
+    } else {
+      container.classList.remove('has-content');
+    }
+  };
+
+  input.addEventListener('input', updateState);
+  input.addEventListener('change', updateState);
+  // Run initially in case of autofill
+  setTimeout(updateState, 200);
+});
+
+// Toggle password visibility for admin fields
+document.querySelectorAll('.pwd-toggle').forEach(toggle => {
+  toggle.addEventListener('click', () => {
+    const input = toggle.parentNode.querySelector('input');
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      toggle.innerText = '🙈';
+    } else {
+      input.type = 'password';
+      toggle.innerText = '👁️';
+    }
+  });
+});
+
 /* ==========================================================================
    AUTH TAB SWITCHING
    ========================================================================== */
@@ -214,6 +257,54 @@ function switchAdminTab(targetTab) {
 
 if (adminTabLogin)    adminTabLogin.addEventListener('click',    () => switchAdminTab('login'));
 if (adminTabRegister) adminTabRegister.addEventListener('click', () => switchAdminTab('register'));
+
+// Admin Forgot Password Triggers & Submission
+const forgotLink = document.querySelector('.forgot-link');
+const adminForgotModal = document.getElementById('admin-forgot-modal');
+const adminForgotForm = document.getElementById('admin-forgot-form');
+const btnCancelAdminForgot = document.getElementById('btn-cancel-admin-forgot');
+const btnCloseAdminForgot = document.getElementById('btn-close-admin-forgot');
+
+if (forgotLink) {
+  forgotLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    adminForgotModal.classList.remove('hidden');
+  });
+}
+
+function closeAdminForgot() {
+  adminForgotModal.classList.add('hidden');
+  adminForgotForm.reset();
+}
+
+if (btnCancelAdminForgot) btnCancelAdminForgot.addEventListener('click', closeAdminForgot);
+if (btnCloseAdminForgot) btnCloseAdminForgot.addEventListener('click', closeAdminForgot);
+
+if (adminForgotForm) {
+  adminForgotForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('admin-forgot-username').value.trim();
+    const adminCode = document.getElementById('admin-forgot-code').value.trim();
+    const newPassword = document.getElementById('admin-forgot-new-password').value;
+
+    try {
+      const res = await fetch(`${API_URL}/api/auth/admin/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, adminCode, newPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Password reset successful! You can now log in.');
+        closeAdminForgot();
+      } else {
+        showToast(data.error || 'Password reset failed.', 'error');
+      }
+    } catch (err) {
+      showToast('Cannot connect to authentication server.', 'error');
+    }
+  });
+}
 
 /* ==========================================================================
    LOGIN HANDLER
@@ -699,9 +790,11 @@ function renderFarmersTable() {
       month: 'short', day: 'numeric', year: 'numeric'
     });
 
+    const namePendingBadge = farmer.pendingBoundaryPolygon ? ' <span class="status-badge pending" style="background-color: #fffbeb; color: #d97706; border: 1px dashed #d97706; font-size: 10px; margin-left: 5px; padding: 2px 6px;">Pending Boundary</span>' : '';
+
     tr.innerHTML = `
       <td><strong>FMR-2026-${String(farmer.id).padStart(3, '0')}</strong></td>
-      <td>${farmer.fullName} <span class="sub-name-text">Registered: ${regDate}</span></td>
+      <td>${farmer.fullName}${namePendingBadge} <span class="sub-name-text">Registered: ${regDate}</span></td>
       <td>${farmer.address || 'Not set'} <span class="table-pin-icon">📍</span></td>
       <td>${farmer.contactNumber || '-'}<br><span class="sub-name-text">${farmer.username}</span></td>
       <td><span class="status-badge verified">${farmer.reportCount} report(s)</span></td>
@@ -913,12 +1006,12 @@ function getContinuousColor(score) {
   score = Math.max(0.0, Math.min(1.0, score));
   
   const colors = [
-    { p: 0.0, r: 0,   g: 100, b: 50 },  // Dark Green (Very Low Risk)
-    { p: 0.2, r: 100, g: 200, b: 100 }, // Light Green (Low Risk)
-    { p: 0.4, r: 240, g: 230, b: 80 },  // Yellow (Moderate Risk)
-    { p: 0.6, r: 240, g: 140, b: 40 },  // Orange (High Risk)
-    { p: 0.8, r: 220, g: 40,  b: 40 },  // Red (Severe Risk)
-    { p: 1.0, r: 139, g: 0,   b: 0 }    // Dark Red (Critical Risk)
+    { p: 0.0, r: 41,  g: 128, b: 185 }, // Deep Blue (Very Low Risk)
+    { p: 0.2, r: 52,  g: 152, b: 219 }, // Light Blue/Cyan (Low Risk)
+    { p: 0.4, r: 46,  g: 204, b: 113 }, // Green (Moderate Risk)
+    { p: 0.6, r: 241, g: 196, b: 15 },  // Yellow (High Risk)
+    { p: 0.8, r: 230, g: 126, b: 34 },  // Orange (Severe Risk)
+    { p: 1.0, r: 231, g: 76,  b: 60 }   // Vibrant Red (Critical Risk)
   ];
   
   let c1 = colors[0];
@@ -943,43 +1036,57 @@ function getContinuousColor(score) {
 }
 
 
+const REGION_10_DATA = {
+  "Bukidnon": {
+    "Valencia City": ["Poblacion", "San Isidro", "Bagontaas", "Lumbayao", "Guinoyuran"],
+    "Malaybalay City": ["Sumpong", "Casisang", "Kalasungay", "San Jose", "Canofoy"],
+    "Maramag": ["Anahawon", "Base Camp", "Dagumba-an", "Dologon"],
+    "Quezon": ["Libertad", "Magsaysay", "Minapan", "Salawagan", "Poblacion"],
+    "Manolo Fortich": ["Damilag", "Alae", "Dahilayan", "Sankanan", "Tankulan"]
+  },
+  "Camiguin": {
+    "Mambajao": ["Poblacion", "Anito", "Balbagon", "Bug-ong", "Yumbing"],
+    "Catarman": ["Poblacion", "Bonbon", "Liloan", "Mainit", "Panghiawan"],
+    "Guinsiliban": ["Cabuan", "Liong", "Poblacion", "North Poblacion", "South Poblacion"],
+    "Mahinog": ["Poblacion", "Binone", "Hubangon", "San Isidro", "San Jose"],
+    "Sagay": ["Poblacion", "Alangilan", "Bacnit", "Bugang", "Cuana"]
+  },
+  "Lanao del Norte": {
+    "Iligan City": ["Poblacion", "Hinaplanon", "Suarez", "Tubod", "Dalipuga"],
+    "Tubod": ["Poblacion", "Baroy", "Malingao", "Pigcarangan", "Tangcal"],
+    "Baroy": ["Poblacion", "Cabasagan", "Dalama", "Libertad", "Salimpuno"],
+    "Lala": ["Poblacion", "Lanipao", "Maranding", "Simpak", "Pinuyak"],
+    "Kapatagan": ["Poblacion", "Cathedral", "Kahayag", "San Isidro", "Taguitic"]
+  },
+  "Misamis Occidental": {
+    "Oroquieta City": ["Poblacion", "Canubay", "Layawan", "Mobod", "Taboc"],
+    "Ozamiz City": ["Poblacion", "Banadero", "Catadman", "Gango", "Maningcol"],
+    "Tangub City": ["Poblacion", "Garang", "Maloro", "Migcanaway", "Silangit"],
+    "Jimenez": ["Poblacion", "Corrales", "Macabayao", "Sibaroc", "Tabo-o"],
+    "Clarin": ["Poblacion", "Guba", "Lupagan", "Pan-ay", "Uguis"]
+  },
+  "Misamis Oriental": {
+    "Cagayan de Oro City": ["Carmen", "Balulang", "Patag", "Bonbon", "Lumbia", "Nazareth", "Macasandig", "Kauswagan"],
+    "Gingoog City": ["Poblacion", "Agaman-a", "Badingas", "Lunao", "San Jose"],
+    "El Salvador City": ["Poblacion", "Amoros", "Cogon", "Himaya", "Sinaloc"],
+    "Opol": ["Poblacion", "Barra", "Igpit", "Luyong Bonbon", "Taboc"],
+    "Tagoloan": ["Poblacion", "Baluarte", "Casinglot", "Natumolan", "Santa Cruz"]
+  }
+};
+
 let locationFiltersInitialized = false;
 
 function populateLocationFilters() {
   if (locationFiltersInitialized) return;
   locationFiltersInitialized = true;
 
-  const provinces = new Set();
-  const municipalities = new Map(); // province -> Set
-  const barangays = new Map(); // municipality -> Set
-
-  reportsData.forEach(r => {
-    const loc = getReportLocationDetails(r);
-    provinces.add(loc.province);
-
-    if (!municipalities.has(loc.province)) {
-      municipalities.set(loc.province, new Set());
-    }
-    municipalities.get(loc.province).add(loc.municipality);
-
-    if (!barangays.has(loc.municipality)) {
-      barangays.set(loc.municipality, new Set());
-    }
-    barangays.get(loc.municipality).add(loc.barangay);
-  });
-
-  const prevProv = mapFilterProvince.value;
-  const prevMuni = mapFilterMunicipality.value;
-  const prevBgy = mapFilterBarangay.value;
-
+  // Populate Provinces
   mapFilterProvince.innerHTML = '<option value="all">All Provinces</option>';
-  Array.from(provinces).sort().forEach(p => {
+  Object.keys(REGION_10_DATA).sort().forEach(p => {
     mapFilterProvince.innerHTML += `<option value="${p}">${p}</option>`;
   });
-  if (Array.from(provinces).includes(prevProv)) {
-    mapFilterProvince.value = prevProv;
-  }
 
+  // Populate Municipalities based on selected Province
   window.updateMunicipalityDropdown = function() {
     const selectedProvince = mapFilterProvince.value;
     const prevM = mapFilterMunicipality.value;
@@ -987,11 +1094,12 @@ function populateLocationFilters() {
     
     let munisToPopulate = [];
     if (selectedProvince === 'all') {
-      municipalities.forEach((set) => {
-        set.forEach(m => munisToPopulate.push(m));
+      // Show all municipalities across all provinces
+      Object.keys(REGION_10_DATA).forEach(p => {
+        Object.keys(REGION_10_DATA[p]).forEach(m => munisToPopulate.push(m));
       });
-    } else if (municipalities.has(selectedProvince)) {
-      munisToPopulate = Array.from(municipalities.get(selectedProvince));
+    } else if (REGION_10_DATA[selectedProvince]) {
+      munisToPopulate = Object.keys(REGION_10_DATA[selectedProvince]);
     }
     
     munisToPopulate = Array.from(new Set(munisToPopulate)).sort();
@@ -1007,28 +1115,36 @@ function populateLocationFilters() {
     window.updateBarangayDropdown();
   };
 
+  // Populate Barangays based on selected Municipality
   window.updateBarangayDropdown = function() {
+    const selectedProvince = mapFilterProvince.value;
     const selectedMuni = mapFilterMunicipality.value;
     const prevB = mapFilterBarangay.value;
     mapFilterBarangay.innerHTML = '<option value="all">All Barangays</option>';
-    
+
     let bgysToPopulate = [];
     if (selectedMuni === 'all') {
-      const selectedProvince = mapFilterProvince.value;
+      // Show all barangays under selected province (or all)
       if (selectedProvince === 'all') {
-        barangays.forEach((set) => {
-          set.forEach(b => bgysToPopulate.push(b));
+        Object.keys(REGION_10_DATA).forEach(p => {
+          Object.keys(REGION_10_DATA[p]).forEach(m => {
+            REGION_10_DATA[p][m].forEach(b => bgysToPopulate.push(b));
+          });
         });
-      } else {
-        const allowedMunis = municipalities.get(selectedProvince) || new Set();
-        allowedMunis.forEach(m => {
-          if (barangays.has(m)) {
-            barangays.get(m).forEach(b => bgysToPopulate.push(b));
-          }
+      } else if (REGION_10_DATA[selectedProvince]) {
+        Object.keys(REGION_10_DATA[selectedProvince]).forEach(m => {
+          REGION_10_DATA[selectedProvince][m].forEach(b => bgysToPopulate.push(b));
         });
       }
-    } else if (barangays.has(selectedMuni)) {
-      bgysToPopulate = Array.from(barangays.get(selectedMuni));
+    } else {
+      // Find municipality's parent province
+      let parentProv = selectedProvince;
+      if (parentProv === 'all') {
+        parentProv = Object.keys(REGION_10_DATA).find(p => REGION_10_DATA[p][selectedMuni]);
+      }
+      if (parentProv && REGION_10_DATA[parentProv] && REGION_10_DATA[parentProv][selectedMuni]) {
+        bgysToPopulate = REGION_10_DATA[parentProv][selectedMuni];
+      }
     }
 
     bgysToPopulate = Array.from(new Set(bgysToPopulate)).sort();
@@ -1043,7 +1159,7 @@ function populateLocationFilters() {
     }
   };
 
-  updateMunicipalityDropdown();
+  window.updateMunicipalityDropdown();
 }
 
 function initAdminMap() {
@@ -1212,11 +1328,11 @@ function refreshAdminMap() {
 
       if (selectedGeoView === 'regional') {
         bounds = [[7.2, 123.4], [9.4, 125.6]];
-        sigma = 0.25;
-        epsilon = 0.008;
+        sigma = 0.65;
+        epsilon = 0.015;
       } else {
         bounds = [[4.5, 116.5], [21.5, 127.0]];
-        sigma = 1.6;
+        sigma = 3.5;
         epsilon = 0.25;
       }
 
@@ -1225,7 +1341,7 @@ function refreshAdminMap() {
       const latMax = bounds[1][0];
       const lngMax = bounds[1][1];
 
-      const canvasSize = 120;
+      const canvasSize = 180;
       const canvas = document.createElement('canvas');
       canvas.width = canvasSize;
       canvas.height = canvasSize;
@@ -1276,7 +1392,7 @@ function refreshAdminMap() {
           imgData.data[idx] = rgb[0];
           imgData.data[idx + 1] = rgb[1];
           imgData.data[idx + 2] = rgb[2];
-          imgData.data[idx + 3] = Math.round(decay * 0.75 * 255);
+          imgData.data[idx + 3] = Math.round(0.6 * 255);
         }
       }
 
@@ -1885,6 +2001,7 @@ function openReportDetailsModal(report) {
   document.getElementById('modal-report-location').innerText = report.address || `Lat: ${parseFloat(report.latitude).toFixed(4)}, Lng: ${parseFloat(report.longitude).toFixed(4)}`;
   document.getElementById('modal-report-croptype').innerText = report.crop_type || 'Rice';
   document.getElementById('modal-report-disease').innerText = report.disaster_type;
+  document.getElementById('modal-report-severity').value = report.severity;
   document.getElementById('modal-report-date').innerText = new Date(report.created_at).toLocaleString();
   document.getElementById('modal-report-notes').innerText = report.details;
 
@@ -1930,6 +2047,155 @@ function openFarmerDetailsModal(farmer) {
   document.getElementById('modal-farmer-joined').innerText = new Date(farmer.createdAt).toLocaleDateString();
   document.getElementById('modal-farmer-reports-count').innerText = `${farmer.reportCount} report(s)`;
 
+  const approvalSection = document.getElementById('boundary-approval-section');
+  const verificationSection = document.getElementById('farmer-verification-section');
+  
+  // Reset visibility states
+  approvalSection.classList.add('hidden');
+  verificationSection.classList.add('hidden');
+  modal.classList.add('mini');
+
+  if (farmer.pendingBoundaryPolygon) {
+    modal.classList.remove('mini');
+    approvalSection.classList.remove('hidden');
+    
+    // Wire approval buttons
+    const btnApprove = document.getElementById('btn-approve-boundary');
+    const btnReject = document.getElementById('btn-reject-boundary');
+    
+    btnApprove.replaceWith(btnApprove.cloneNode(true));
+    btnReject.replaceWith(btnReject.cloneNode(true));
+    
+    document.getElementById('btn-approve-boundary').addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/admin/farmers/${farmer.id}/approve-boundary`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          showToast('Farm boundary update approved.');
+          closeAllModals();
+          loadAllData();
+        } else {
+          const data = await res.json();
+          showToast(data.error || 'Failed to approve boundary change.', 'error');
+        }
+      } catch (err) {
+        showToast('Server error.', 'error');
+      }
+    });
+
+    document.getElementById('btn-reject-boundary').addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/admin/farmers/${farmer.id}/reject-boundary`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          showToast('Farm boundary update rejected.');
+          closeAllModals();
+          loadAllData();
+        } else {
+          const data = await res.json();
+          showToast(data.error || 'Failed to reject boundary change.', 'error');
+        }
+      } catch (err) {
+        showToast('Server error.', 'error');
+      }
+    });
+  }
+
+  if (farmer.status === 'inactive') {
+    modal.classList.remove('mini');
+    verificationSection.classList.remove('hidden');
+
+    const btnVerify = document.getElementById('btn-verify-farmer');
+    btnVerify.replaceWith(btnVerify.cloneNode(true));
+
+    document.getElementById('btn-verify-farmer').addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/admin/farmers/${farmer.id}/status`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ status: 'active' })
+        });
+        if (res.ok) {
+          showToast('Farmer account accepted and verified successfully.');
+          closeAllModals();
+          loadAllData();
+        } else {
+          const data = await res.json();
+          showToast(data.error || 'Failed to verify farmer.', 'error');
+        }
+      } catch (err) {
+        showToast('Server error.', 'error');
+      }
+    });
+  }
+
+  // Initialize and populate farmerDetailMap
+  setTimeout(() => {
+    if (!farmerDetailMap) {
+      farmerDetailMap = L.map('farmer-detail-map', {
+        zoomControl: true,
+        maxZoom: 18
+      }).setView([14.5995, 120.9842], 13);
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(farmerDetailMap);
+    } else {
+      if (farmerApprovedPolygon) farmerDetailMap.removeLayer(farmerApprovedPolygon);
+      if (farmerPendingPolygon) farmerDetailMap.removeLayer(farmerPendingPolygon);
+      farmerApprovedPolygon = null;
+      farmerPendingPolygon = null;
+    }
+
+    let bounds = [];
+    if (farmer.boundaryPolygon) {
+      try {
+        const pts = JSON.parse(farmer.boundaryPolygon);
+        farmerApprovedPolygon = L.polygon(pts, {
+          color: '#007E3A',
+          fillColor: '#007E3A',
+          fillOpacity: 0.25,
+          weight: 3
+        }).addTo(farmerDetailMap);
+        bounds = farmerApprovedPolygon.getBounds();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    if (farmer.pendingBoundaryPolygon) {
+      try {
+        const pts = JSON.parse(farmer.pendingBoundaryPolygon);
+        farmerPendingPolygon = L.polygon(pts, {
+          color: '#d97706',
+          fillColor: '#d97706',
+          fillOpacity: 0.15,
+          weight: 3,
+          dashArray: '5, 5'
+        }).addTo(farmerDetailMap);
+        bounds = farmerPendingPolygon.getBounds();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    if (bounds && bounds.isValid && bounds.isValid()) {
+      farmerDetailMap.fitBounds(bounds, { padding: [15, 15] });
+    } else {
+      // CDO default if no boundary
+      farmerDetailMap.setView([8.4542, 124.6319], 12);
+    }
+
+    farmerDetailMap.invalidateSize();
+  }, 150);
+
   backdrop.classList.remove('hidden');
   modal.classList.remove('hidden');
 }
@@ -1952,12 +2218,20 @@ document.getElementById('modal-backdrop').addEventListener('click', () => {
 
 document.getElementById('modal-btn-validate').addEventListener('click', () => {
   if (currentModalReport && currentModalReport.status !== 'verified') {
-    executeReportAction(currentModalReport.id, 'verified', currentModalReport.severity);
+    const severityVal = document.getElementById('modal-report-severity').value;
+    executeReportAction(currentModalReport.id, 'verified', severityVal);
   }
 });
 document.getElementById('modal-btn-reject').addEventListener('click', () => {
   if (currentModalReport && currentModalReport.status !== 'responded') {
-    executeReportAction(currentModalReport.id, 'responded', currentModalReport.severity);
+    const severityVal = document.getElementById('modal-report-severity').value;
+    executeReportAction(currentModalReport.id, 'responded', severityVal);
+  }
+});
+document.getElementById('modal-report-severity').addEventListener('change', (e) => {
+  if (currentModalReport) {
+    const newSeverity = e.target.value;
+    executeReportAction(currentModalReport.id, currentModalReport.status, newSeverity);
   }
 });
 
@@ -1995,9 +2269,22 @@ function renderBellNotifications() {
     item.className = `bell-item-card ${alert.is_read ? 'read' : ''}`;
     item.innerText = alert.message;
 
-    // Clicking marks read
+    // Clicking marks read & opens details if boundary change or new farmer
     item.addEventListener('click', async (e) => {
       e.stopPropagation();
+      bellNotifDropdown.classList.add('hidden');
+
+      if (alert.message.includes('[Boundary Change]') || alert.message.includes('[New Farmer]')) {
+        const match = alert.message.match(/FMR-2026-(\d+)/);
+        if (match) {
+          const farmerId = parseInt(match[1], 10);
+          const farmer = farmersData.find(f => f.id === farmerId);
+          if (farmer) {
+            openFarmerDetailsModal(farmer);
+          }
+        }
+      }
+
       if (!alert.is_read) {
         try {
           const res = await fetch(`${API_URL}/api/notifications/${alert.id}/read`, {
@@ -2021,52 +2308,66 @@ function renderBellNotifications() {
    CSV & PDF PRINT DATA EXPORTS
    ========================================================================== */
 
-btnExportCsv.addEventListener('click', async () => {
-  if (!token) return;
-  try {
-    const res = await fetch(`${API_URL}/api/export/reports`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (res.ok) {
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `AgriSnap_Damage_Reports_${Date.now()}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      showToast('CSV downloaded successfully.');
-    }
-  } catch (err) {
-    showToast('Failed to download CSV.', 'error');
+let currentExportTarget = 'reports'; // 'reports' or 'farmers'
+
+function openExportModal(target) {
+  currentExportTarget = target;
+  exportOptionsModal.classList.remove('hidden');
+}
+
+function closeExportModal() {
+  exportOptionsModal.classList.add('hidden');
+}
+
+if (btnTriggerReportsExport) {
+  btnTriggerReportsExport.addEventListener('click', () => openExportModal('reports'));
+}
+
+if (btnTriggerFarmersExport) {
+  btnTriggerFarmersExport.addEventListener('click', () => openExportModal('farmers'));
+}
+
+if (btnCloseExportModal) {
+  btnCloseExportModal.addEventListener('click', closeExportModal);
+}
+
+// Global click checks to close modal if background clicked
+exportOptionsModal.addEventListener('click', (e) => {
+  if (e.target === exportOptionsModal) closeExportModal();
+});
+
+// PDF Option Click
+exportOptPdf.addEventListener('click', () => {
+  closeExportModal();
+  if (currentExportTarget === 'reports') {
+    exportReportsToPdf();
+  } else {
+    exportFarmersToPdf();
   }
 });
 
-btnExportFarmersCsv.addEventListener('click', () => {
-  let csvContent = 'Farmer ID,Full Name,Address,Crop Type,Status,Reports Count,Date Registered\n';
-  farmersData.forEach(farmer => {
-    const regDate = new Date(farmer.createdAt).toISOString();
-    const escapedName = `"${farmer.fullName.replace(/"/g, '""')}"`;
-    const escapedAddress = `"${(farmer.address || '').replace(/"/g, '""')}"`;
-    csvContent += `FMR-2026-${String(farmer.id).padStart(3, '0')},${escapedName},${escapedAddress},${farmer.cropType},${farmer.status},${farmer.reportCount},${regDate}\n`;
-  });
-
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `AgriSnap_Farmers_Records_${Date.now()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
-  showToast('Farmers list CSV exported successfully.');
+// Excel Option Click
+exportOptExcel.addEventListener('click', () => {
+  closeExportModal();
+  if (currentExportTarget === 'reports') {
+    exportReportsToExcel();
+  } else {
+    exportFarmersToExcel();
+  }
 });
 
-// PDF Printable list layout
-btnExportPdf.addEventListener('click', () => {
+// CSV Option Click
+exportOptCsv.addEventListener('click', () => {
+  closeExportModal();
+  if (currentExportTarget === 'reports') {
+    exportReportsToCsv();
+  } else {
+    exportFarmersToCsv();
+  }
+});
+
+// Helper: Export Reports to PDF
+function exportReportsToPdf() {
   const total = reportsData.length;
   const verified = reportsData.filter(r => r.status === 'verified').length;
   const pending = reportsData.filter(r => r.status === 'pending').length;
@@ -2135,7 +2436,216 @@ btnExportPdf.addEventListener('click', () => {
   `;
 
   window.print();
-});
+}
+
+// Helper: Export Farmers to PDF
+function exportFarmersToPdf() {
+  let tableRows = '';
+  farmersData.forEach(farmer => {
+    tableRows += `
+      <tr>
+        <td>FMR-2026-${String(farmer.id).padStart(3, '0')}</td>
+        <td>${farmer.fullName}</td>
+        <td>${farmer.address || 'Not specified'}</td>
+        <td>${farmer.cropType}</td>
+        <td style="text-transform: capitalize;">${farmer.status}</td>
+        <td>${farmer.reportCount}</td>
+        <td>${new Date(farmer.createdAt).toLocaleDateString()}</td>
+      </tr>
+    `;
+  });
+
+  pdfPrintLayout.innerHTML = `
+    <div class="pdf-header">
+      <div class="pdf-title">
+        <h1>AGRISNAP REGISTERED FARMERS SUMMARY</h1>
+        <p>Department of Agriculture Region 10 - Administrative Records</p>
+      </div>
+      <div class="pdf-meta">
+        <strong>Date:</strong> ${new Date().toLocaleString()}<br>
+        <strong>Official Authority:</strong> Officer Pedro
+      </div>
+    </div>
+
+    <div class="pdf-section">
+      <h2>Registered Farmers Log</h2>
+      <table class="pdf-table">
+        <thead>
+          <tr>
+            <th>Farmer ID</th>
+            <th>Full Name</th>
+            <th>Farm Location</th>
+            <th>Crop Type</th>
+            <th>Status</th>
+            <th>Reports</th>
+            <th>Date Joined</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pdf-section" style="margin-top: 60px; display: flex; justify-content: flex-end;">
+      <div style="border-top: 1px solid #000; width: 220px; text-align: center; padding-top: 8px; font-size: 11px;">
+        <strong>DA Authorized Signature</strong>
+      </div>
+    </div>
+  `;
+
+  window.print();
+}
+
+// Helper: Export Reports to CSV
+async function exportReportsToCsv() {
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_URL}/api/export/reports`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `AgriSnap_Damage_Reports_${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      showToast('CSV downloaded successfully.');
+    }
+  } catch (err) {
+    showToast('Failed to download CSV.', 'error');
+  }
+}
+
+// Helper: Export Farmers to CSV
+function exportFarmersToCsv() {
+  let csvContent = 'Farmer ID,Full Name,Address,Crop Type,Status,Reports Count,Date Registered\n';
+  farmersData.forEach(farmer => {
+    const regDate = new Date(farmer.createdAt).toISOString();
+    const escapedName = `"${farmer.fullName.replace(/"/g, '""')}"`;
+    const escapedAddress = `"${(farmer.address || '').replace(/"/g, '""')}"`;
+    csvContent += `FMR-2026-${String(farmer.id).padStart(3, '0')},${escapedName},${escapedAddress},${farmer.cropType},${farmer.status},${farmer.reportCount},${regDate}\n`;
+  });
+
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `AgriSnap_Farmers_Records_${Date.now()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+  showToast('Farmers list CSV exported successfully.');
+}
+
+// Helper: Export Reports to Excel
+function exportReportsToExcel() {
+  let html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Reports</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+    <body>
+      <table>
+        <thead>
+          <tr>
+            <th>Report ID</th>
+            <th>Farmer Name</th>
+            <th>Location</th>
+            <th>Disaster Type</th>
+            <th>Severity</th>
+            <th>Status</th>
+            <th>Date Submitted</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  reportsData.forEach(r => {
+    html += `
+      <tr>
+        <td>RPT-2026-${String(r.id).padStart(3, '0')}</td>
+        <td>${r.farmer_name}</td>
+        <td>Lat: ${parseFloat(r.latitude).toFixed(4)}, Lng: ${parseFloat(r.longitude).toFixed(4)}</td>
+        <td>${r.disaster_type}</td>
+        <td>${r.severity}</td>
+        <td>${r.status}</td>
+        <td>${new Date(r.created_at).toLocaleString()}</td>
+      </tr>
+    `;
+  });
+  html += `
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+  
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `AgriSnap_Damage_Reports_${Date.now()}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+  showToast('Excel document exported successfully.');
+}
+
+// Helper: Export Farmers to Excel
+function exportFarmersToExcel() {
+  let html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Farmers</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+    <body>
+      <table>
+        <thead>
+          <tr>
+            <th>Farmer ID</th>
+            <th>Full Name</th>
+            <th>Address</th>
+            <th>Crop Type</th>
+            <th>Status</th>
+            <th>Reports Count</th>
+            <th>Date Registered</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  farmersData.forEach(f => {
+    html += `
+      <tr>
+        <td>FMR-2026-${String(f.id).padStart(3, '0')}</td>
+        <td>${f.fullName}</td>
+        <td>${f.address || ''}</td>
+        <td>${f.cropType}</td>
+        <td>${f.status}</td>
+        <td>${f.reportCount}</td>
+        <td>${new Date(f.createdAt).toLocaleString()}</td>
+      </tr>
+    `;
+  });
+  html += `
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+  
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `AgriSnap_Farmers_Records_${Date.now()}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+  showToast('Farmers Excel document exported successfully.');
+}
 
 // Print single report from table row actions
 function triggerReportPdfPrint(report) {
