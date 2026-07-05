@@ -137,42 +137,42 @@ body {
   pointer-events: none;
   transition: opacity 0.2s ease, visibility 0.2s ease;
 }
-.input-with-icon input {
-  width: 100%;
-  padding: 14px 16px 14px 46px;
-  background-color: rgba(31, 41, 55, 0.6);
-  border: 1px solid rgba(75, 85, 99, 0.5);
-  border-radius: 12px;
-  font-size: 14.5px;
-  color: #ffffff;
-  outline: none;
-  transition: padding-left 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+.centered-auth-container .input-with-icon input {
+  width: 100% !important;
+  padding: 14px 16px 14px 46px !important;
+  background-color: rgba(31, 41, 55, 0.6) !important;
+  border: 1px solid rgba(75, 85, 99, 0.5) !important;
+  border-radius: 12px !important;
+  font-size: 14.5px !important;
+  color: #ffffff !important;
+  outline: none !important;
+  transition: padding-left 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
 }
 
 /* Hide icon and shift text when input is focused or has text */
-.input-with-icon:has(input:focus) .input-icon,
-.input-with-icon:has(input:not(:placeholder-shown)) .input-icon,
-.input-with-icon.has-focus .input-icon,
-.input-with-icon.has-content .input-icon {
-  opacity: 0;
-  visibility: hidden;
+.centered-auth-container .input-with-icon:has(input:focus) .input-icon,
+.centered-auth-container .input-with-icon:has(input:not(:placeholder-shown)) .input-icon,
+.centered-auth-container .input-with-icon.has-focus .input-icon,
+.centered-auth-container .input-with-icon.has-content .input-icon {
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
-.input-with-icon:has(input:focus) input,
-.input-with-icon:has(input:not(:placeholder-shown)) input,
-.input-with-icon.has-focus input,
-.input-with-icon.has-content input {
-  padding-left: 16px;
+.centered-auth-container .input-with-icon:has(input:focus) input,
+.centered-auth-container .input-with-icon:has(input:not(:placeholder-shown)) input,
+.centered-auth-container .input-with-icon.has-focus input,
+.centered-auth-container .input-with-icon.has-content input {
+  padding-left: 16px !important;
 }
-.input-with-icon input[type="password"] {
-  padding-right: 46px;
+.centered-auth-container .input-with-icon input[type="password"] {
+  padding-right: 46px !important;
 }
-.input-with-icon input:focus {
-  background-color: rgba(31, 41, 55, 0.8);
-  border-color: #10b981;
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+.centered-auth-container .input-with-icon input:focus {
+  background-color: rgba(31, 41, 55, 0.8) !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
 }
-.input-with-icon input::placeholder {
-  color: #6b7280;
+.centered-auth-container .input-with-icon input::placeholder {
+  color: #9ca3af !important;
 }
 .form-actions-row {
   display: flex;
