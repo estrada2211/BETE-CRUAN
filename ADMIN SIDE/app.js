@@ -1175,6 +1175,7 @@ function initAdminMap() {
   if (adminMap) return;
 
   adminMap = L.map('admin-map', { zoomControl: true }).setView([8.4542, 124.6319], 11);
+  window.adminMap = adminMap;
   
   standardTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap'
